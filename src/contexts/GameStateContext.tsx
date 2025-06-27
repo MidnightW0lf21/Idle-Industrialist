@@ -8,16 +8,16 @@ import { Truck, MoveHorizontal, Car } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast"
 
 export const AVAILABLE_RAW_MATERIALS: Record<string, { costPerUnit: number, timePerUnit: number }> = {
-  'Resistors': { costPerUnit: 0.1, timePerUnit: 11.2 },
-  'Capacitors': { costPerUnit: 0.2, timePerUnit: 11.2 },
-  'Transistors': { costPerUnit: 0.5, timePerUnit: 14.4 },
-  'LEDs': { costPerUnit: 0.3, timePerUnit: 11.2 },
-  'PCBs': { costPerUnit: 2, timePerUnit: 64 },
-  'Integrated Circuits': { costPerUnit: 5, timePerUnit: 128 },
-  'Diodes': { costPerUnit: 0.25, timePerUnit: 9.6 },
-  'Inductors': { costPerUnit: 0.7, timePerUnit: 19.2 },
-  'Quartz Crystals': { costPerUnit: 1.5, timePerUnit: 40 },
-  'Switches': { costPerUnit: 0.8, timePerUnit: 16.0 },
+  'Resistors': { costPerUnit: 0.1, timePerUnit: 22.4 },
+  'Capacitors': { costPerUnit: 0.2, timePerUnit: 22.4 },
+  'Transistors': { costPerUnit: 0.5, timePerUnit: 28.8 },
+  'LEDs': { costPerUnit: 0.3, timePerUnit: 22.4 },
+  'PCBs': { costPerUnit: 2, timePerUnit: 128 },
+  'Integrated Circuits': { costPerUnit: 5, timePerUnit: 256 },
+  'Diodes': { costPerUnit: 0.25, timePerUnit: 19.2 },
+  'Inductors': { costPerUnit: 0.7, timePerUnit: 38.4 },
+  'Quartz Crystals': { costPerUnit: 1.5, timePerUnit: 80 },
+  'Switches': { costPerUnit: 0.8, timePerUnit: 32.0 },
 };
 
 export const RAW_MATERIAL_UNITS_PER_PALLET_SPACE = 1000;
@@ -58,6 +58,7 @@ const LINE_EFFICIENCY_UPGRADE_BASE_COST = 400;
 const LINE_EFFICIENCY_CAP = 5;
 const MAX_PRODUCTION_LINES = 12;
 const MAX_WAREHOUSE_CAPACITY = 1500;
+const PRODUCTION_QUEUE_CAP = 10;
 
 
 const initialState: GameState = {
@@ -240,7 +241,9 @@ const gameReducer = (state: GameState, action: GameAction): GameState => {
     }
 
     case 'ACCEPT_ORDER': {
-      if (state.productionQueue.find(o => o.id === action.order.id)) return state;
+      if (state.productionQueue.find(o => o.id === action.order.id) || state.productionQueue.length >= PRODUCTION_QUEUE_CAP) {
+        return state;
+      }
       return {
         ...state,
         availableOrders: state.availableOrders.filter(o => o.id !== action.order.id),
@@ -663,7 +666,14 @@ export const GameStateProvider = ({ children }: { children: ReactNode }) => {
       }
     };
     
-    generate(); // Generate one order on initial load
+    // Check if an order should be generated immediately
+    const lastOrderTime = stateRef.current.availableOrders[stateRef.current.availableOrders.length - 1]?.id || 0;
+    const timeSinceLastOrder = Date.now() - lastOrderTime; 
+
+    if (state.availableOrders.length < 6) {
+        generate(); 
+    }
+    
     const orderInterval = setInterval(generate, NEW_ORDER_INTERVAL);
 
     return () => clearInterval(orderInterval);

@@ -10,17 +10,29 @@ import { Package, DollarSign, Clock, ChevronsRight, Loader2, Wrench } from 'luci
 import { useToast } from "@/hooks/use-toast";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
+const QUEUE_CAP = 10;
+
 export default function OrdersTab() {
   const { state, dispatch } = useGameState();
   const { toast } = useToast();
 
   const handleAcceptOrder = (order) => {
+    if (state.productionQueue.length >= QUEUE_CAP) {
+      toast({
+        title: "Queue Full",
+        description: `The production queue can only hold a maximum of ${QUEUE_CAP} orders.`,
+        variant: "destructive",
+      });
+      return;
+    }
     dispatch({ type: 'ACCEPT_ORDER', order });
     toast({
       title: "Order Accepted!",
       description: `"${order.productName}" added to production queue.`,
     })
   };
+
+  const isQueueFull = state.productionQueue.length >= QUEUE_CAP;
 
   return (
     <div className="space-y-6">
@@ -45,7 +57,14 @@ export default function OrdersTab() {
                   </ul>
                 </CardContent>
                 <CardFooter className="pt-2">
-                  <Button onClick={() => handleAcceptOrder(order)} size="sm" className="w-full">Accept Order</Button>
+                  <Button 
+                    onClick={() => handleAcceptOrder(order)} 
+                    size="sm" 
+                    className="w-full"
+                    disabled={isQueueFull}
+                  >
+                    Accept Order
+                  </Button>
                 </CardFooter>
               </Card>
             )) : (
@@ -59,7 +78,10 @@ export default function OrdersTab() {
       </div>
       <Separator />
       <div>
-        <h3 className="text-lg font-semibold mb-2 font-headline">Production Queue</h3>
+        <div className="flex justify-between items-baseline mb-2">
+          <h3 className="text-lg font-semibold font-headline">Production Queue</h3>
+          <span className="text-sm text-muted-foreground">{state.productionQueue.length} / {QUEUE_CAP}</span>
+        </div>
         <TooltipProvider delayDuration={100}>
           <div className="space-y-2">
             {state.productionQueue.length > 0 ? state.productionQueue.map((order) => (

@@ -64,11 +64,7 @@ const PRODUCTION_QUEUE_CAP = 10;
 const initialState: GameState = {
   money: 500,
   pallets: {},
-  rawMaterials: { 
-    'Resistors': { quantity: 1000 },
-    'Capacitors': { quantity: 500 },
-    'PCBs': { quantity: 100 },
-  },
+  rawMaterials: {},
   warehouseCapacity: 20,
   productionLines: [{ id: 1, orderId: null, productName: null, progress: 0, timeToProduce: 0, efficiency: 1, efficiencyLevel: 1, quantity: 0, reward: 0, completedQuantity: 0, assignedWorkerId: null, materialRequirements: null, isBlockedByMaterials: false }],
   availableOrders: [],

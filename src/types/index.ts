@@ -88,11 +88,11 @@ export interface GameState {
   availableOrders: Order[];
   productionQueue: Order[];
   upgrades: Record<string, Upgrade>;
-  lastOrderTimestamp: number;
   workers: Worker[];
   vehicles: Record<string, Vehicle>;
   activeShipments: Shipment[];
   invoices: Invoice[];
+  certificationLevel: number;
 }
 
 export type GameAction =

@@ -18,7 +18,8 @@ export type { Order } from '@/types';
 const GenerateOrderInputSchema = z.object({
   playerMoney: z.number().describe("The player's current amount of money."),
   productionCapacity: z.number().describe("The number of production lines the player has."),
-  warehouseUsage: z.number().describe("The current percentage of warehouse capacity being used (0-100).")
+  warehouseUsage: z.number().describe("The current percentage of warehouse capacity being used (0-100)."),
+  certificationLevel: z.number().int().min(1).describe("The player's certification level. Higher levels unlock more complex and profitable orders. Level 1: Very simple orders. Level 2: Basic orders. Level 3: Intermediate orders. Level 4: Advanced orders. Level 5: Expert-level, highly complex orders.")
 });
 export type GenerateOrderInput = z.infer<typeof GenerateOrderInputSchema>;
 
@@ -58,14 +59,22 @@ const prompt = ai.definePrompt({
   - Money: {{playerMoney}}
   - Production Lines: {{productionCapacity}}
   - Warehouse Usage: {{warehouseUsage}}%
+  - Certification Level: {{certificationLevel}}
 
   Based on this, create a new order that is challenging but achievable.
-  - If the player has a lot of money, make the order larger and more rewarding.
-  - If warehouse usage is high, create smaller orders.
-  - The reward should be balanced against the quantity and production time. A longer, larger order should be worth more.
-  - Use names of real-life electronic components for the product name. Be specific, like '10k Ohm Resistors' or '2N3904 Transistors'.
-  - Production is slow. Each unit/pallet should take between 30 and 120 seconds to produce. Set the 'timeToProduce' field to the total time in seconds for the whole order based on this rate and the quantity.
-  - You must also specify the raw materials required to produce a single unit/pallet. The \`materialRequirements\` field should be a JSON object mapping material names to the quantity needed. Choose 1 to 3 materials. The quantities for each material per pallet should be substantial, ranging from 25 to 100 units, reflecting a complex assembly.
+  - The Certification Level is the MOST IMPORTANT factor for difficulty.
+  - Level 1: Generate a VERY SIMPLE and FAST order. Small quantity (5-20), low reward, short production time (30-60s total), and only 1 simple raw material (like Resistors or LEDs) with low requirements (10-25 per pallet).
+  - Level 2: Generate a basic order. Slightly larger quantity (20-50), more reward, and 1-2 raw materials.
+  - Level 3: Intermediate order. Larger quantity (50-150), significant reward, and 2 more complex materials.
+  - Level 4: Advanced order. Large quantity (150-300), high reward, and 2-3 materials, including more expensive ones like PCBs or ICs.
+  - Level 5: Expert order. Very large quantity (300-500), massive reward, and 3 complex materials with high requirements per pallet.
+  
+  General rules:
+  - If warehouse usage is high, create smaller orders for the given certification level.
+  - The reward should be balanced against the quantity, production time, and material cost.
+  - Use names of real-life electronic components for the product name. Be specific.
+  - Production is slow. Each unit/pallet should take between 30 and 120 seconds to produce. Set the 'timeToProduce' field to the total time in seconds for the whole order based on this rate and the quantity, respecting the guidelines for each certification level.
+  - You must specify the raw materials required to produce a single unit/pallet. The \`materialRequirements\` field should be a JSON object mapping material names to the quantity needed. Choose materials appropriate for the certification level. The quantities for each material per pallet should be substantial, ranging from 25 to 100 units, reflecting a complex assembly.
   - Available raw materials: Resistors, Capacitors, Transistors, LEDs, PCBs, Integrated Circuits, Diodes, Inductors, Quartz Crystals, Switches.
   `,
 });

@@ -7,11 +7,6 @@ import { generateNewOrder } from '@/ai/flows/order-generation-flow';
 import { Truck, MoveHorizontal, Car } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast"
 
-const initialOrders: Order[] = [
-  { id: 1, productName: "1k Ohm Resistors", quantity: 100, reward: 1500, timeToProduce: 6000, materialRequirements: { 'Resistors': 10 } },
-  { id: 2, productName: "10uF Ceramic Capacitors", quantity: 50, reward: 2500, timeToProduce: 4500, materialRequirements: { 'Capacitors': 5, 'PCBs': 1 } },
-];
-
 export const AVAILABLE_RAW_MATERIALS: Record<string, { costPerUnit: number, timePerUnit: number }> = {
   'Resistors': { costPerUnit: 0.1, timePerUnit: 5.6 },
   'Capacitors': { costPerUnit: 0.2, timePerUnit: 5.6 },
@@ -38,10 +33,13 @@ const ALL_VEHICLES: Record<string, Vehicle> = {
 const WAREHOUSE_EXPANSION_BASE_COST = 750;
 const WAREHOUSE_CAPACITY_UPGRADE_BASE_AMOUNT = 20;
 const WAREHOUSE_CAPACITY_UPGRADE_POWER = 1.6;
+const CERTIFICATION_BASE_COST = 2500;
+
 
 const initialUpgrades: Record<string, Upgrade> = {
   'add_line': { id: 'add_line', name: "New Production Line", description: "Build an additional production line.", level: 1, cost: 1000 },
   'warehouse_expansion': { id: 'warehouse_expansion', name: "Warehouse Expansion", description: `Increase warehouse capacity by ${WAREHOUSE_CAPACITY_UPGRADE_BASE_AMOUNT} pallets.`, level: 1, cost: WAREHOUSE_EXPANSION_BASE_COST },
+  'cert_level_2': { id: 'cert_level_2', name: "Logistics Certification I", description: "Unlocks access to more complex and profitable orders.", level: 2, cost: CERTIFICATION_BASE_COST },
   'unlock_pickup': { id: 'unlock_pickup', name: "Buy Pickup Truck", description: "Capacity: 10 pallets, faster delivery.", level: 1, cost: 1500 },
   'unlock_van': { id: 'unlock_van', name: "Buy Cargo Van", description: "Capacity: 25 pallets.", level: 1, cost: 4000 },
   'unlock_boxtruck': { id: 'unlock_boxtruck', name: "Buy Box Truck", description: "Capacity: 50 pallets.", level: 1, cost: 10000 },
@@ -72,16 +70,16 @@ const initialState: GameState = {
   },
   warehouseCapacity: 20,
   productionLines: [{ id: 1, orderId: null, productName: null, progress: 0, timeToProduce: 0, efficiency: 1, efficiencyLevel: 1, quantity: 0, reward: 0, completedQuantity: 0, assignedWorkerId: null, materialRequirements: null }],
-  availableOrders: initialOrders,
+  availableOrders: [],
   productionQueue: [],
   upgrades: initialUpgrades,
-  lastOrderTimestamp: Date.now(),
   workers: initialWorkers,
   vehicles: {
     wheelbarrow: ALL_VEHICLES.wheelbarrow
   },
   activeShipments: [],
   invoices: [],
+  certificationLevel: 1,
 };
 
 const gameReducer = (state: GameState, action: GameAction): GameState => {
@@ -237,10 +235,6 @@ const gameReducer = (state: GameState, action: GameAction): GameState => {
             newState.productionQueue = newState.productionQueue.slice(1);
         }
       }
-      
-      if (Date.now() - newState.lastOrderTimestamp > NEW_ORDER_INTERVAL) {
-        newState.lastOrderTimestamp = Date.now();
-      }
 
       return newState;
     }
@@ -353,6 +347,39 @@ const gameReducer = (state: GameState, action: GameAction): GameState => {
           newState.upgrades = newUpgrades;
           break;
         }
+        case 'cert_level_2':
+        case 'cert_level_3':
+        case 'cert_level_4':
+        case 'cert_level_5': {
+          const newLevel = upgrade.level;
+          const nextLevel = newLevel + 1;
+          
+          newState.certificationLevel = newLevel;
+          delete newUpgrades[action.upgradeId];
+          
+          if (nextLevel <= 5) {
+            const newCertId = `cert_level_${nextLevel}`;
+            const certNames: Record<number, string> = {
+              3: "Advanced Manufacturing Cert.",
+              4: "Supply Chain Mastery",
+              5: "Global Logistics Expert"
+            };
+             const certDescriptions: Record<number, string> = {
+              3: "Unlocks advanced orders and materials.",
+              4: "Unlocks expert-level supply chain challenges.",
+              5: "Unlocks the most complex and lucrative global contracts."
+            };
+            newUpgrades[newCertId] = {
+              id: newCertId,
+              name: certNames[nextLevel],
+              description: certDescriptions[nextLevel] || "Unlocks the next tier of orders.",
+              level: nextLevel,
+              cost: Math.floor(CERTIFICATION_BASE_COST * Math.pow(newLevel, 2.5)),
+            };
+          }
+          newState.upgrades = newUpgrades;
+          break;
+        }
         case 'unlock_pickup':
           newState.vehicles = { ...newState.vehicles, pickup: ALL_VEHICLES.pickup };
           delete newUpgrades['unlock_pickup'];
@@ -379,6 +406,10 @@ const gameReducer = (state: GameState, action: GameAction): GameState => {
     }
 
     case 'ADD_ORDER': {
+      // Prevent adding duplicate orders
+      if (state.availableOrders.some(o => o.id === action.order.id)) {
+        return state;
+      }
       return {
         ...state,
         availableOrders: [...state.availableOrders, action.order]
@@ -564,7 +595,8 @@ const GameStateContext = createContext<{ state: GameState; dispatch: React.Dispa
 export const GameStateProvider = ({ children }: { children: ReactNode }) => {
   const [state, dispatch] = useReducer(gameReducer, initialState);
   const { toast } = useToast();
-  const isInitialMount = useRef(true); // To prevent generation on first render
+  const stateRef = useRef(state);
+  stateRef.current = state;
 
   // Game Loop
   useEffect(() => {
@@ -593,19 +625,10 @@ export const GameStateProvider = ({ children }: { children: ReactNode }) => {
   }, [state.activeShipments.length]);
 
   // Effect for AI order generation
-  const stateRef = useRef(state);
-  stateRef.current = state;
-  const { lastOrderTimestamp } = state;
   useEffect(() => {
-    // Prevent generation on the very first render.
-    if (isInitialMount.current) {
-        isInitialMount.current = false;
-        return;
-    }
-
     const generate = async () => {
       // Use the ref to get the latest state without adding them as dependencies
-      const { money, productionLines, warehouseCapacity, availableOrders, pallets, rawMaterials, productionQueue } = stateRef.current;
+      const { money, productionLines, warehouseCapacity, availableOrders, pallets, rawMaterials, productionQueue, certificationLevel } = stateRef.current;
       
       if (availableOrders.length >= 10) return;
 
@@ -619,11 +642,17 @@ export const GameStateProvider = ({ children }: { children: ReactNode }) => {
           playerMoney: money,
           productionCapacity: productionLines.length,
           warehouseUsage: isNaN(warehouseUsage) ? 0 : warehouseUsage,
+          certificationLevel: certificationLevel,
       };
       
       try {
         const newOrderData = await generateNewOrder(input);
-        const newId = (Math.max(...availableOrders.map(o => o.id).concat(productionQueue.map(o=>o.id)), 0) || 0) + 1;
+        const allOrderIds = [
+            ...stateRef.current.availableOrders.map(o => o.id),
+            ...stateRef.current.productionQueue.map(o => o.id),
+            ...stateRef.current.productionLines.map(l => l.orderId).filter((id): id is number => id !== null)
+        ];
+        const newId = (Math.max(0, ...allOrderIds)) + 1;
         
         dispatch({
             type: 'ADD_ORDER',
@@ -634,8 +663,12 @@ export const GameStateProvider = ({ children }: { children: ReactNode }) => {
       }
     };
     
-    generate();
-  }, [lastOrderTimestamp]);
+    generate(); // Generate one order on initial load
+    const orderInterval = setInterval(generate, NEW_ORDER_INTERVAL);
+
+    return () => clearInterval(orderInterval);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <GameStateContext.Provider value={{ state, dispatch }}>

@@ -20,10 +20,12 @@ const ALL_VEHICLES: Record<string, Vehicle> = {
 };
 
 const WAREHOUSE_EXPANSION_BASE_COST = 750;
+const WAREHOUSE_CAPACITY_UPGRADE_BASE_AMOUNT = 20;
+const WAREHOUSE_CAPACITY_UPGRADE_POWER = 1.6;
 
 const initialUpgrades: Record<string, Upgrade> = {
   'add_line': { id: 'add_line', name: "New Production Line", description: "Build an additional production line.", level: 1, cost: 1000 },
-  'warehouse_expansion': { id: 'warehouse_expansion', name: "Warehouse Expansion", description: "Increase warehouse capacity by 150 pallets.", level: 1, cost: WAREHOUSE_EXPANSION_BASE_COST },
+  'warehouse_expansion': { id: 'warehouse_expansion', name: "Warehouse Expansion", description: `Increase warehouse capacity by ${WAREHOUSE_CAPACITY_UPGRADE_BASE_AMOUNT} pallets.`, level: 1, cost: WAREHOUSE_EXPANSION_BASE_COST },
   'unlock_pickup': { id: 'unlock_pickup', name: "Buy Pickup Truck", description: "Capacity: 10 pallets, faster delivery.", level: 1, cost: 1500 },
   'unlock_van': { id: 'unlock_van', name: "Buy Cargo Van", description: "Capacity: 25 pallets.", level: 1, cost: 4000 },
   'unlock_boxtruck': { id: 'unlock_boxtruck', name: "Buy Box Truck", description: "Capacity: 50 pallets.", level: 1, cost: 10000 },
@@ -42,7 +44,6 @@ const LINE_EFFICIENCY_UPGRADE_BASE_COST = 400;
 const LINE_EFFICIENCY_CAP = 5;
 const MAX_PRODUCTION_LINES = 12;
 const MAX_WAREHOUSE_CAPACITY = 1500;
-const WAREHOUSE_EXPANSION_AMOUNT = 150;
 
 
 const initialState: GameState = {
@@ -283,16 +284,21 @@ const gameReducer = (state: GameState, action: GameAction): GameState => {
         }
         case 'warehouse_expansion': {
           if (newState.warehouseCapacity >= MAX_WAREHOUSE_CAPACITY) return state;
-          const newCapacity = newState.warehouseCapacity + WAREHOUSE_EXPANSION_AMOUNT;
+          
+          const amountToAdd = Math.floor(WAREHOUSE_CAPACITY_UPGRADE_BASE_AMOUNT * Math.pow(upgrade.level, WAREHOUSE_CAPACITY_UPGRADE_POWER));
+          const newCapacity = newState.warehouseCapacity + amountToAdd;
           newState.warehouseCapacity = Math.min(newCapacity, MAX_WAREHOUSE_CAPACITY);
 
           if (newCapacity >= MAX_WAREHOUSE_CAPACITY) {
             delete newUpgrades['warehouse_expansion'];
           } else {
+            const nextLevel = upgrade.level + 1;
+            const nextAmountToAdd = Math.floor(WAREHOUSE_CAPACITY_UPGRADE_BASE_AMOUNT * Math.pow(nextLevel, WAREHOUSE_CAPACITY_UPGRADE_POWER));
             newUpgrades['warehouse_expansion'] = {
               ...upgrade,
-              cost: Math.floor(WAREHOUSE_EXPANSION_BASE_COST * Math.pow(upgrade.level + 1, 1.7)),
-              level: upgrade.level + 1,
+              cost: Math.floor(WAREHOUSE_EXPANSION_BASE_COST * Math.pow(nextLevel, 1.7)),
+              level: nextLevel,
+              description: `Increase warehouse capacity by ${nextAmountToAdd} pallets.`,
             };
           }
           newState.upgrades = newUpgrades;

@@ -13,6 +13,10 @@ export interface Worker {
   assignedLineId: number | null;
   energy: number; // 0-100
   maxEnergy: number;
+  efficiency: number; // Starts at 1
+  stamina: number; // Starts at 1
+  efficiencyLevel: number;
+  staminaLevel: number;
 }
 
 export interface ProductionLine {
@@ -60,4 +64,5 @@ export type GameAction =
   | { type: 'SHIP_GOODS' }
   | { type: 'ADD_ORDER', order: Order }
   | { type: 'HIRE_WORKER' }
-  | { type: 'ASSIGN_WORKER'; workerId: number; lineId: number | null };
+  | { type: 'ASSIGN_WORKER'; workerId: number; lineId: number | null }
+  | { type: 'UPGRADE_WORKER'; workerId: number; upgradeType: 'efficiency' | 'stamina' };

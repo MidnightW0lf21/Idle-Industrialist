@@ -18,8 +18,8 @@ const initialUpgrades: Record<string, Upgrade> = {
 };
 
 const initialWorkers: Worker[] = [
-    { id: 1, name: "Alice", wage: 1, assignedLineId: 1, energy: 100, maxEnergy: 100 },
-    { id: 2, name: "Bob", wage: 1, assignedLineId: null, energy: 100, maxEnergy: 100 },
+    { id: 1, name: "Alice", wage: 1, assignedLineId: 1, energy: 100, maxEnergy: 100, efficiency: 1, stamina: 1, efficiencyLevel: 1, staminaLevel: 1 },
+    { id: 2, name: "Bob", wage: 1, assignedLineId: null, energy: 100, maxEnergy: 100, efficiency: 1, stamina: 1, efficiencyLevel: 1, staminaLevel: 1 },
 ];
 
 const NEW_ORDER_INTERVAL = 30000; // 30 seconds
@@ -55,8 +55,9 @@ const gameReducer = (state: GameState, action: GameAction): GameState => {
       const exhaustedWorkerIds = new Set<number>();
       newState.workers = newState.workers.map(worker => {
           if (worker.assignedLineId !== null) {
-              // Deplete energy if working
-              const newEnergy = worker.energy - 0.5;
+              // Deplete energy if working, considering stamina
+              const energyDepletion = 0.5 / worker.stamina;
+              const newEnergy = worker.energy - energyDepletion;
               if (newEnergy <= 0) {
                   exhaustedWorkerIds.add(worker.id);
                   return { ...worker, energy: 0, assignedLineId: null };
@@ -80,13 +81,17 @@ const gameReducer = (state: GameState, action: GameAction): GameState => {
         if (line.orderId === null || line.assignedWorkerId === null) {
           return line;
         }
+        
+        const worker = newState.workers.find(w => w.id === line.assignedWorkerId);
+        if (!worker) return line; // Should not happen if assigned
 
         const spaceAvailable = newState.warehouseCapacity - palletsInWarehouse;
         if (spaceAvailable <= 0) {
           return line; // Production is blocked
         }
 
-        const progressIncrease = (100 / line.timeToProduce) * line.efficiency;
+        const effectiveEfficiency = line.efficiency * worker.efficiency;
+        const progressIncrease = (100 / line.timeToProduce) * effectiveEfficiency;
         const newProgress = Math.min(100, line.progress + progressIncrease);
 
         const totalPalletsGoal = Math.floor((newProgress / 100) * line.quantity);
@@ -219,6 +224,10 @@ const gameReducer = (state: GameState, action: GameAction): GameState => {
         assignedLineId: null,
         energy: 100,
         maxEnergy: 100,
+        efficiency: 1,
+        stamina: 1,
+        efficiencyLevel: 1,
+        staminaLevel: 1,
       };
 
       return {
@@ -263,6 +272,40 @@ const gameReducer = (state: GameState, action: GameAction): GameState => {
       }
       
       return { ...state, workers: newWorkers, productionLines: newLines };
+    }
+    
+    case 'UPGRADE_WORKER': {
+      const { workerId, upgradeType } = action;
+      const workerIndex = state.workers.findIndex(w => w.id === workerId);
+      if (workerIndex === -1) return state;
+
+      const worker = state.workers[workerIndex];
+      const baseCost = 250;
+      let cost = 0;
+      const newWorkers = [...state.workers];
+
+      if (upgradeType === 'efficiency') {
+        cost = Math.floor(baseCost * Math.pow(worker.efficiencyLevel, 1.5));
+        if (state.money >= cost) {
+          newWorkers[workerIndex] = {
+            ...worker,
+            efficiency: worker.efficiency + 0.1,
+            efficiencyLevel: worker.efficiencyLevel + 1,
+          };
+          return { ...state, money: state.money - cost, workers: newWorkers };
+        }
+      } else if (upgradeType === 'stamina') {
+        cost = Math.floor(baseCost * Math.pow(worker.staminaLevel, 1.5));
+        if (state.money >= cost) {
+          newWorkers[workerIndex] = {
+            ...worker,
+            stamina: worker.stamina + 0.1,
+            staminaLevel: worker.staminaLevel + 1,
+          };
+          return { ...state, money: state.money - cost, workers: newWorkers };
+        }
+      }
+      return state; // Not enough money or invalid upgrade type
     }
 
 

@@ -5,11 +5,12 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { UserPlus, User, Briefcase, DollarSign, Zap } from 'lucide-react';
+import { UserPlus, User, Briefcase, DollarSign, Zap, ArrowUpCircle } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import { Progress } from '@/components/ui/progress';
 
 const WORKER_HIRE_COST = 500;
+const UPGRADE_BASE_COST = 250;
 
 export default function WorkersTab() {
   const { state, dispatch } = useGameState();
@@ -36,6 +37,26 @@ export default function WorkersTab() {
     dispatch({ type: 'ASSIGN_WORKER', workerId, lineId: numericLineId });
   };
   
+  const handleUpgradeWorker = (workerId: number, upgradeType: 'efficiency' | 'stamina') => {
+    const worker = state.workers.find(w => w.id === workerId)!;
+    const level = upgradeType === 'efficiency' ? worker.efficiencyLevel : worker.staminaLevel;
+    const cost = Math.floor(UPGRADE_BASE_COST * Math.pow(level, 1.5));
+
+    if (state.money >= cost) {
+      dispatch({ type: 'UPGRADE_WORKER', workerId, upgradeType });
+      toast({
+        title: "Worker Upgraded!",
+        description: `${worker.name}'s ${upgradeType} has been improved.`,
+      });
+    } else {
+      toast({
+        title: "Upgrade Failed",
+        description: "Not enough money for this upgrade.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const idleLines = state.productionLines.filter(line => line.assignedWorkerId === null);
 
   return (
@@ -63,9 +84,12 @@ export default function WorkersTab() {
           <div className="space-y-4">
             {state.workers.map(worker => {
               const assignedLine = worker.assignedLineId ? state.productionLines.find(l => l.id === worker.assignedLineId) : null;
+              const efficiencyUpgradeCost = Math.floor(UPGRADE_BASE_COST * Math.pow(worker.efficiencyLevel, 1.5));
+              const staminaUpgradeCost = Math.floor(UPGRADE_BASE_COST * Math.pow(worker.staminaLevel, 1.5));
+
               return (
-                <Card key={worker.id} className="bg-secondary/30">
-                  <CardHeader>
+                <Card key={worker.id} className="bg-secondary/30 flex flex-col">
+                  <CardHeader className="pb-4">
                     <CardTitle className="text-base flex justify-between items-center">
                       <span className="flex items-center gap-2">
                         <User className="w-5 h-5"/> {worker.name}
@@ -75,8 +99,7 @@ export default function WorkersTab() {
                       </span>
                     </CardTitle>
                   </CardHeader>
-                  <CardContent>
-                    <div className="space-y-4">
+                  <CardContent className="flex-grow space-y-4">
                        <div className="flex items-center gap-2">
                           <Zap className="w-4 h-4 text-yellow-500" />
                           <Progress value={worker.energy} className="h-2 [&>div]:bg-yellow-400" />
@@ -117,8 +140,33 @@ export default function WorkersTab() {
                           </Select>
                         </div>
                       )}
-                    </div>
                   </CardContent>
+                  <CardFooter className="grid grid-cols-2 gap-2 pt-4">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleUpgradeWorker(worker.id, 'efficiency')}
+                      disabled={state.money < efficiencyUpgradeCost}
+                      className="justify-between px-2"
+                    >
+                      <div className="flex items-center gap-1">
+                        <ArrowUpCircle className="h-4 w-4" /> Eff. ({worker.efficiency.toFixed(1)}x)
+                      </div>
+                      <span className="text-xs font-mono">${efficiencyUpgradeCost}</span>
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleUpgradeWorker(worker.id, 'stamina')}
+                      disabled={state.money < staminaUpgradeCost}
+                      className="justify-between px-2"
+                    >
+                      <div className="flex items-center gap-1">
+                        <Zap className="h-4 w-4" /> Stam. ({worker.stamina.toFixed(1)}x)
+                      </div>
+                      <span className="text-xs font-mono">${staminaUpgradeCost}</span>
+                    </Button>
+                  </CardFooter>
                 </Card>
               );
             })}

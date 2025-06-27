@@ -13,9 +13,10 @@ interface ProductionLineCardProps {
 export default function ProductionLineCard({ line }: ProductionLineCardProps) {
   const { state } = useGameState();
   const worker = state.workers.find(w => w.id === line.assignedWorkerId);
+  const effectiveEfficiency = worker ? line.efficiency * worker.efficiency : line.efficiency;
 
   // Time remaining calculation needs to account for efficiency
-  const timeRemaining = line.orderId ? (line.timeToProduce / line.efficiency) * (1 - (line.progress / 100)) : 0;
+  const timeRemaining = line.orderId && effectiveEfficiency > 0 ? (line.timeToProduce / effectiveEfficiency) * (1 - (line.progress / 100)) : 0;
   
   const formatTime = (seconds: number) => {
     if (seconds < 0 || !isFinite(seconds)) return '00:00';
@@ -28,11 +29,11 @@ export default function ProductionLineCard({ line }: ProductionLineCardProps) {
     <Card className="bg-secondary/50">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Cog className={`w-5 h-5 ${line.orderId && line.assignedWorkerId ? 'animate-spin' : ''}`} style={{ animationDuration: '5s' }}/>
+          <Cog className={`w-5 h-5 ${line.orderId && line.assignedWorkerId ? 'animate-spin' : ''}`} style={{ animationDuration: `${Math.max(0.5, 5 / effectiveEfficiency)}s` }}/>
           Production Line {line.id}
         </CardTitle>
         <CardDescription className="flex justify-between items-center">
-          <span>Efficiency: {Math.round(line.efficiency * 100)}%</span>
+          <span>Efficiency: {Math.round(effectiveEfficiency * 100)}%</span>
            <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
               <User className="w-3 h-3"/>
               {worker ? worker.name : 'Unassigned'}

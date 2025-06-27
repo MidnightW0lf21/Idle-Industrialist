@@ -11,6 +11,9 @@ import { Progress } from '@/components/ui/progress';
 
 const WORKER_HIRE_COST = 500;
 const UPGRADE_BASE_COST = 250;
+const EFFICIENCY_CAP = 3;
+const STAMINA_CAP = 8;
+
 
 export default function WorkersTab() {
   const { state, dispatch } = useGameState();
@@ -86,6 +89,8 @@ export default function WorkersTab() {
               const assignedLine = worker.assignedLineId ? state.productionLines.find(l => l.id === worker.assignedLineId) : null;
               const efficiencyUpgradeCost = Math.floor(UPGRADE_BASE_COST * Math.pow(worker.efficiencyLevel, 1.5));
               const staminaUpgradeCost = Math.floor(UPGRADE_BASE_COST * Math.pow(worker.staminaLevel, 1.5));
+              const atEffCap = worker.efficiency >= EFFICIENCY_CAP;
+              const atStamCap = worker.stamina >= STAMINA_CAP;
 
               return (
                 <Card key={worker.id} className="bg-secondary/30 flex flex-col">
@@ -146,25 +151,25 @@ export default function WorkersTab() {
                       size="sm"
                       variant="outline"
                       onClick={() => handleUpgradeWorker(worker.id, 'efficiency')}
-                      disabled={state.money < efficiencyUpgradeCost}
+                      disabled={state.money < efficiencyUpgradeCost || atEffCap}
                       className="justify-between px-2"
                     >
                       <div className="flex items-center gap-1">
-                        <ArrowUpCircle className="h-4 w-4" /> Eff. ({worker.efficiency.toFixed(1)}x)
+                        <ArrowUpCircle className="h-4 w-4" /> {atEffCap ? 'Eff. (MAX)' : `Eff. (${worker.efficiency.toFixed(1)}x)`}
                       </div>
-                      <span className="text-xs font-mono">${efficiencyUpgradeCost}</span>
+                      <span className="text-xs font-mono">{atEffCap ? '—' : `$${efficiencyUpgradeCost}`}</span>
                     </Button>
                     <Button
                       size="sm"
                       variant="outline"
                       onClick={() => handleUpgradeWorker(worker.id, 'stamina')}
-                      disabled={state.money < staminaUpgradeCost}
+                      disabled={state.money < staminaUpgradeCost || atStamCap}
                       className="justify-between px-2"
                     >
                       <div className="flex items-center gap-1">
-                        <Zap className="h-4 w-4" /> Stam. ({worker.stamina.toFixed(1)}x)
+                        <Zap className="h-4 w-4" /> {atStamCap ? 'Stam. (MAX)' : `Stam. (${worker.stamina.toFixed(1)}x)`}
                       </div>
-                      <span className="text-xs font-mono">${staminaUpgradeCost}</span>
+                      <span className="text-xs font-mono">{atStamCap ? '—' : `$${staminaUpgradeCost}`}</span>
                     </Button>
                   </CardFooter>
                 </Card>

@@ -18,7 +18,7 @@ const initialUpgrades: Record<string, Upgrade> = {
 };
 
 const initialWorkers: Worker[] = [
-    { id: 1, name: "Alice", wage: 1, assignedLineId: null, energy: 100, maxEnergy: 100, efficiency: 1, stamina: 1, efficiencyLevel: 1, staminaLevel: 1 },
+    { id: 1, name: "Alice", wage: 0.2, assignedLineId: null, energy: 100, maxEnergy: 100, efficiency: 1, stamina: 1, efficiencyLevel: 1, staminaLevel: 1 },
 ];
 
 const initialVehicles: Record<string, Vehicle> = {
@@ -282,7 +282,7 @@ const gameReducer = (state: GameState, action: GameAction): GameState => {
       const newWorker: Worker = {
         id: (Math.max(...state.workers.map(w => w.id), 0) || 0) + 1,
         name: availableNames[Math.floor(Math.random() * availableNames.length)],
-        wage: 1.5,
+        wage: 0.2,
         assignedLineId: null,
         energy: 100,
         maxEnergy: 100,
@@ -341,23 +341,31 @@ const gameReducer = (state: GameState, action: GameAction): GameState => {
       let cost = 0;
       const newWorkers = [...state.workers];
 
+      const EFFICIENCY_CAP = 3;
+      const STAMINA_CAP = 8;
+      const WAGE_INCREASE_PER_UPGRADE = 0.1;
+
       if (upgradeType === 'efficiency') {
+        if (worker.efficiency >= EFFICIENCY_CAP) return state;
         cost = Math.floor(baseCost * Math.pow(worker.efficiencyLevel, 1.5));
         if (state.money >= cost) {
           newWorkers[workerIndex] = {
             ...worker,
             efficiency: worker.efficiency + 0.1,
             efficiencyLevel: worker.efficiencyLevel + 1,
+            wage: worker.wage + WAGE_INCREASE_PER_UPGRADE,
           };
           return { ...state, money: state.money - cost, workers: newWorkers };
         }
       } else if (upgradeType === 'stamina') {
+        if (worker.stamina >= STAMINA_CAP) return state;
         cost = Math.floor(baseCost * Math.pow(worker.staminaLevel, 1.5));
         if (state.money >= cost) {
           newWorkers[workerIndex] = {
             ...worker,
             stamina: worker.stamina + 0.1,
             staminaLevel: worker.staminaLevel + 1,
+            wage: worker.wage + WAGE_INCREASE_PER_UPGRADE,
           };
           return { ...state, money: state.money - cost, workers: newWorkers };
         }

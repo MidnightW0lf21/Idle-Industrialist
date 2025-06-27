@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useGameState } from '@/contexts/GameStateContext';
@@ -49,7 +50,7 @@ export default function OrdersTab() {
             )) : (
               <div className="text-center text-muted-foreground p-4 flex flex-col items-center justify-center h-full">
                 <Loader2 className="h-6 w-6 animate-spin mb-2" />
-                <p>Generating new orders...</p>
+                <p>Waiting for new orders...</p>
               </div>
             )}
           </div>

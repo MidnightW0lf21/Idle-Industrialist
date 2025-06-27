@@ -8,16 +8,16 @@ import { Truck, MoveHorizontal, Car } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast"
 
 export const AVAILABLE_RAW_MATERIALS: Record<string, { costPerUnit: number, timePerUnit: number }> = {
-  'Resistors': { costPerUnit: 0.1, timePerUnit: 5.6 },
-  'Capacitors': { costPerUnit: 0.2, timePerUnit: 5.6 },
-  'Transistors': { costPerUnit: 0.5, timePerUnit: 7.2 },
-  'LEDs': { costPerUnit: 0.3, timePerUnit: 5.6 },
-  'PCBs': { costPerUnit: 2, timePerUnit: 32 },
-  'Integrated Circuits': { costPerUnit: 5, timePerUnit: 64 },
-  'Diodes': { costPerUnit: 0.25, timePerUnit: 4.8 },
-  'Inductors': { costPerUnit: 0.7, timePerUnit: 9.6 },
-  'Quartz Crystals': { costPerUnit: 1.5, timePerUnit: 20 },
-  'Switches': { costPerUnit: 0.8, timePerUnit: 8.0 },
+  'Resistors': { costPerUnit: 0.1, timePerUnit: 11.2 },
+  'Capacitors': { costPerUnit: 0.2, timePerUnit: 11.2 },
+  'Transistors': { costPerUnit: 0.5, timePerUnit: 14.4 },
+  'LEDs': { costPerUnit: 0.3, timePerUnit: 11.2 },
+  'PCBs': { costPerUnit: 2, timePerUnit: 64 },
+  'Integrated Circuits': { costPerUnit: 5, timePerUnit: 128 },
+  'Diodes': { costPerUnit: 0.25, timePerUnit: 9.6 },
+  'Inductors': { costPerUnit: 0.7, timePerUnit: 19.2 },
+  'Quartz Crystals': { costPerUnit: 1.5, timePerUnit: 40 },
+  'Switches': { costPerUnit: 0.8, timePerUnit: 16.0 },
 };
 
 export const RAW_MATERIAL_UNITS_PER_PALLET_SPACE = 1000;
@@ -69,7 +69,7 @@ const initialState: GameState = {
     'PCBs': { quantity: 100 },
   },
   warehouseCapacity: 20,
-  productionLines: [{ id: 1, orderId: null, productName: null, progress: 0, timeToProduce: 0, efficiency: 1, efficiencyLevel: 1, quantity: 0, reward: 0, completedQuantity: 0, assignedWorkerId: null, materialRequirements: null }],
+  productionLines: [{ id: 1, orderId: null, productName: null, progress: 0, timeToProduce: 0, efficiency: 1, efficiencyLevel: 1, quantity: 0, reward: 0, completedQuantity: 0, assignedWorkerId: null, materialRequirements: null, isBlockedByMaterials: false }],
   availableOrders: [],
   productionQueue: [],
   upgrades: initialUpgrades,
@@ -311,7 +311,7 @@ const gameReducer = (state: GameState, action: GameAction): GameState => {
         case 'add_line': {
           if (newState.productionLines.length >= MAX_PRODUCTION_LINES) return state;
           const newLineId = newState.productionLines.length + 1;
-          newState.productionLines.push({ id: newLineId, orderId: null, productName: null, progress: 0, timeToProduce: 0, efficiency: 1, efficiencyLevel: 1, quantity: 0, reward: 0, completedQuantity: 0, assignedWorkerId: null, materialRequirements: null });
+          newState.productionLines.push({ id: newLineId, orderId: null, productName: null, progress: 0, timeToProduce: 0, efficiency: 1, efficiencyLevel: 1, quantity: 0, reward: 0, completedQuantity: 0, assignedWorkerId: null, materialRequirements: null, isBlockedByMaterials: false });
           
           if (newState.productionLines.length >= MAX_PRODUCTION_LINES) {
             delete newUpgrades['add_line'];
@@ -628,9 +628,9 @@ export const GameStateProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     const generate = async () => {
       // Use the ref to get the latest state without adding them as dependencies
-      const { money, productionLines, warehouseCapacity, availableOrders, pallets, rawMaterials, productionQueue, certificationLevel } = stateRef.current;
+      const { money, productionLines, warehouseCapacity, availableOrders, pallets, rawMaterials, certificationLevel } = stateRef.current;
       
-      if (availableOrders.length >= 10) return;
+      if (availableOrders.length >= 6) return;
 
       const totalStoredPallets = Object.values(pallets).reduce((sum, p) => sum + p.quantity, 0);
       const totalRawMaterialUnits = Object.values(rawMaterials).reduce((sum, m) => sum + (m?.quantity || 0), 0);

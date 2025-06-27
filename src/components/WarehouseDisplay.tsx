@@ -5,7 +5,7 @@ import { useGameState } from '@/contexts/GameStateContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
-import { Warehouse, Truck, AlertCircle, Package, MinusCircle, PlusCircle, CircleDollarSign } from 'lucide-react';
+import { Warehouse, Truck, AlertCircle, Package, Clock, CircleDollarSign } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import { Separator } from '@/components/ui/separator';
 import { Input } from '@/components/ui/input';
@@ -143,7 +143,7 @@ export default function WarehouseDisplay() {
                       </div>
                       <div className="text-xs text-muted-foreground text-right">
                         <p>Cap: {vehicle.capacity}</p>
-                        <p>Time: {vehicle.deliveryTime}s</p>
+                        <p>Time: {vehicle.timePerPallet}s/pallet</p>
                       </div>
                     </Label>
                   ))}
@@ -163,7 +163,7 @@ export default function WarehouseDisplay() {
             <div className="space-y-2">
               {state.activeShipments.map(shipment => {
                 const timeRemaining = (shipment.arrivalTime - Date.now()) / 1000;
-                const progress = (1 - (timeRemaining / shipment.vehicle.deliveryTime)) * 100;
+                const progress = (1 - (timeRemaining / shipment.totalDeliveryTime)) * 100;
                 return (
                   <div key={shipment.id} className="text-sm p-2 rounded-md bg-secondary/50">
                     <div className="flex justify-between items-center">
@@ -193,6 +193,9 @@ export default function WarehouseDisplay() {
           <div className="text-right space-y-1">
             <p className="flex items-center gap-1.5 justify-end"><Package className="w-4 h-4" />{totalSelectedQuantity.toLocaleString()} pallets</p>
             <p className="flex items-center gap-1.5 justify-end"><CircleDollarSign className="w-4 h-4" />${totalSelectedValue.toLocaleString()}</p>
+            {selectedVehicle && totalSelectedQuantity > 0 && (
+              <p className="flex items-center gap-1.5 justify-end text-muted-foreground"><Clock className="w-4 h-4" />Est. Time: {formatTime(selectedVehicle.timePerPallet * totalSelectedQuantity)}</p>
+            )}
           </div>
         </div>
         <Button 

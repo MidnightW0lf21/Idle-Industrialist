@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useReducer, useEffect, ReactNode } from 'react';
 import type { GameState, GameAction, Order, ProductionLine, Upgrade, StoredPallet, Worker, Vehicle, Shipment } from '@/types';
 import { generateNewOrder } from '@/ai/flows/order-generation-flow';
-import { Truck } from 'lucide-react';
+import { Truck, MoveHorizontal, Car } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast"
 
 const initialOrders: Order[] = [
@@ -11,20 +11,27 @@ const initialOrders: Order[] = [
   { id: 2, productName: "10uF Ceramic Capacitors", quantity: 50, reward: 2500, timeToProduce: 4500 },
 ];
 
+const ALL_VEHICLES: Record<string, Vehicle> = {
+  wheelbarrow: { id: 'wheelbarrow', name: 'Wheelbarrow', capacity: 2, timePerPallet: 60, icon: MoveHorizontal },
+  pickup: { id: 'pickup', name: 'Pickup Truck', capacity: 10, timePerPallet: 10, icon: Car },
+  van: { id: 'van', name: 'Cargo Van', capacity: 25, timePerPallet: 9, icon: Truck },
+  boxtruck: { id: 'boxtruck', name: 'Box Truck', capacity: 50, timePerPallet: 8, icon: Truck },
+  semitruck: { id: 'semitruck', name: 'Semi-Truck', capacity: 200, timePerPallet: 6, icon: Truck },
+};
+
 const initialUpgrades: Record<string, Upgrade> = {
   'efficiency_1': { id: 'efficiency_1', name: "Improved Lubricants", description: "Increase all machine efficiency by 10%.", level: 1, cost: 500 },
   'add_line_1': { id: 'add_line_1', name: "New Production Line", description: "Build a second production line.", level: 1, cost: 1000 },
   'warehouse_1': { id: 'warehouse_1', name: "Warehouse Expansion", description: "Increase warehouse capacity by 100 pallets.", level: 1, cost: 750 },
+  'unlock_pickup': { id: 'unlock_pickup', name: "Buy Pickup Truck", description: "Capacity: 10 pallets, faster delivery.", level: 1, cost: 1500 },
+  'unlock_van': { id: 'unlock_van', name: "Buy Cargo Van", description: "Capacity: 25 pallets.", level: 1, cost: 4000 },
+  'unlock_boxtruck': { id: 'unlock_boxtruck', name: "Buy Box Truck", description: "Capacity: 50 pallets.", level: 1, cost: 10000 },
+  'unlock_semitruck': { id: 'unlock_semitruck', name: "Buy Semi-Truck", description: "Capacity: 200 pallets, very efficient.", level: 1, cost: 25000 },
 };
 
 const initialWorkers: Worker[] = [
     { id: 1, name: "Alice", wage: 0.2, assignedLineId: null, energy: 100, maxEnergy: 100, efficiency: 1, stamina: 1, efficiencyLevel: 1, staminaLevel: 1 },
 ];
-
-const initialVehicles: Record<string, Vehicle> = {
-  pickup: { id: 'pickup', name: 'Pickup Truck', capacity: 10, deliveryTime: 30, icon: Truck },
-  boxtruck: { id: 'boxtruck', name: 'Box Truck', capacity: 50, deliveryTime: 90, icon: Truck },
-}
 
 const NEW_ORDER_INTERVAL = 30000; // 30 seconds
 const WORKER_HIRE_COST = 500;
@@ -41,7 +48,9 @@ const initialState: GameState = {
   upgrades: initialUpgrades,
   lastOrderTimestamp: Date.now(),
   workers: initialWorkers,
-  vehicles: initialVehicles,
+  vehicles: {
+    wheelbarrow: ALL_VEHICLES.wheelbarrow
+  },
   activeShipments: [],
 };
 
@@ -220,13 +229,15 @@ const gameReducer = (state: GameState, action: GameAction): GameState => {
         return state;
       }
       
+      const totalDeliveryTime = totalQuantity * vehicle.timePerPallet;
       const newShipment: Shipment = {
         id: (Math.max(...state.activeShipments.map(s => s.id), 0) || 0) + 1,
         vehicle,
         pallets: shipmentPallets,
         totalValue,
         totalQuantity,
-        arrivalTime: Date.now() + vehicle.deliveryTime * 1000,
+        totalDeliveryTime,
+        arrivalTime: Date.now() + totalDeliveryTime * 1000,
       };
 
       return {
@@ -257,6 +268,18 @@ const gameReducer = (state: GameState, action: GameAction): GameState => {
           break;
         case 'warehouse_1':
           newState.warehouseCapacity += 100;
+          break;
+        case 'unlock_pickup':
+          newState.vehicles = { ...newState.vehicles, pickup: ALL_VEHICLES.pickup };
+          break;
+        case 'unlock_van':
+          newState.vehicles = { ...newState.vehicles, van: ALL_VEHICLES.van };
+          break;
+        case 'unlock_boxtruck':
+          newState.vehicles = { ...newState.vehicles, boxtruck: ALL_VEHICLES.boxtruck };
+          break;
+        case 'unlock_semitruck':
+          newState.vehicles = { ...newState.vehicles, semitruck: ALL_VEHICLES.semitruck };
           break;
       }
 

@@ -51,7 +51,7 @@ export interface Vehicle {
   id: string;
   name: string;
   capacity: number;
-  deliveryTime: number; // base time in seconds
+  timePerPallet: number; // time in seconds per pallet
   icon: LucideIcon;
 }
 
@@ -61,6 +61,7 @@ export interface Shipment {
   pallets: Record<string, StoredPallet>;
   totalValue: number;
   totalQuantity: number;
+  totalDeliveryTime: number; // total delivery time in seconds
   arrivalTime: number; // timestamp
 }
 

@@ -19,9 +19,11 @@ const ALL_VEHICLES: Record<string, Vehicle> = {
   semitruck: { id: 'semitruck', name: 'Semi-Truck', capacity: 200, timePerPallet: 6, icon: Truck },
 };
 
+const WAREHOUSE_EXPANSION_BASE_COST = 750;
+
 const initialUpgrades: Record<string, Upgrade> = {
   'add_line': { id: 'add_line', name: "New Production Line", description: "Build an additional production line.", level: 1, cost: 1000 },
-  'warehouse_expansion': { id: 'warehouse_expansion', name: "Warehouse Expansion", description: "Increase warehouse capacity by 150 pallets.", level: 1, cost: 750 },
+  'warehouse_expansion': { id: 'warehouse_expansion', name: "Warehouse Expansion", description: "Increase warehouse capacity by 150 pallets.", level: 1, cost: WAREHOUSE_EXPANSION_BASE_COST },
   'unlock_pickup': { id: 'unlock_pickup', name: "Buy Pickup Truck", description: "Capacity: 10 pallets, faster delivery.", level: 1, cost: 1500 },
   'unlock_van': { id: 'unlock_van', name: "Buy Cargo Van", description: "Capacity: 25 pallets.", level: 1, cost: 4000 },
   'unlock_boxtruck': { id: 'unlock_boxtruck', name: "Buy Box Truck", description: "Capacity: 50 pallets.", level: 1, cost: 10000 },
@@ -289,7 +291,7 @@ const gameReducer = (state: GameState, action: GameAction): GameState => {
           } else {
             newUpgrades['warehouse_expansion'] = {
               ...upgrade,
-              cost: Math.floor(upgrade.cost * 2),
+              cost: Math.floor(WAREHOUSE_EXPANSION_BASE_COST * Math.pow(upgrade.level + 1, 1.7)),
               level: upgrade.level + 1,
             };
           }

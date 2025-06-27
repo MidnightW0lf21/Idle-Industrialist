@@ -1,92 +1,208 @@
 "use client";
 
+import React, { useState, useMemo, useEffect } from 'react';
 import { useGameState } from '@/contexts/GameStateContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
-import { Warehouse, Truck, AlertCircle, Package } from 'lucide-react';
+import { Warehouse, Truck, AlertCircle, Package, MinusCircle, PlusCircle, CircleDollarSign } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import { Separator } from '@/components/ui/separator';
+import { Input } from '@/components/ui/input';
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { Label } from "@/components/ui/label"
+import { ScrollArea } from './ui/scroll-area';
 
 export default function WarehouseDisplay() {
   const { state, dispatch } = useGameState();
   const { toast } = useToast();
+  
+  const [palletsToShip, setPalletsToShip] = useState<Record<string, number>>({});
+  const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(null);
 
-  const totalPallets = Object.values(state.pallets).reduce((sum, p) => sum + p.quantity, 0);
-
-  const handleShip = () => {
-    if (totalPallets > 0) {
-      const earnings = Object.values(state.pallets).reduce((sum, p) => sum + (p.quantity * p.value), 0);
-      dispatch({ type: 'SHIP_GOODS' });
-      toast({
-        title: "Shipment Sent!",
-        description: `You earned $${Math.floor(earnings).toLocaleString()} for ${totalPallets} pallets.`,
-      })
-    } else {
-      toast({
-        title: "Shipping Failed",
-        description: "No pallets in warehouse to ship.",
-        variant: "destructive",
-      })
-    }
+  const totalStoredPallets = Object.values(state.pallets).reduce((sum, p) => sum + p.quantity, 0);
+  const warehouseUsage = (totalStoredPallets / state.warehouseCapacity) * 100;
+  const isFull = totalStoredPallets >= state.warehouseCapacity;
+  
+  const handlePalletSelectionChange = (productName: string, quantity: number) => {
+    const availableQuantity = state.pallets[productName]?.quantity || 0;
+    const newQuantity = Math.max(0, Math.min(availableQuantity, quantity));
+    setPalletsToShip(prev => ({
+      ...prev,
+      [productName]: newQuantity,
+    }));
   };
   
-  const warehouseUsage = (totalPallets / state.warehouseCapacity) * 100;
-  const isFull = totalPallets >= state.warehouseCapacity;
+  const { totalSelectedQuantity, totalSelectedValue } = useMemo(() => {
+    let quantity = 0;
+    let value = 0;
+    for (const [productName, num] of Object.entries(palletsToShip)) {
+      if (num > 0) {
+        quantity += num;
+        value += num * (state.pallets[productName]?.value || 0);
+      }
+    }
+    return { totalSelectedQuantity: quantity, totalSelectedValue: value };
+  }, [palletsToShip, state.pallets]);
+
+  const selectedVehicle = selectedVehicleId ? state.vehicles[selectedVehicleId] : null;
+
+  const handleDispatch = () => {
+    if (!selectedVehicle) {
+      toast({ title: "No Vehicle Selected", description: "Please choose a truck for the shipment.", variant: "destructive" });
+      return;
+    }
+    if (totalSelectedQuantity === 0) {
+      toast({ title: "No Pallets Selected", description: "Please select some pallets to ship.", variant: "destructive" });
+      return;
+    }
+    if (totalSelectedQuantity > selectedVehicle.capacity) {
+      toast({ title: "Over Capacity", description: `Your selection (${totalSelectedQuantity}) exceeds the ${selectedVehicle.name}'s capacity of ${selectedVehicle.capacity}.`, variant: "destructive" });
+      return;
+    }
+
+    dispatch({ type: 'START_SHIPMENT', vehicleId: selectedVehicle.id, palletsToShip });
+    toast({ title: "Shipment Dispatched!", description: `${selectedVehicle.name} is on its way with ${totalSelectedQuantity} pallets.` });
+    
+    // Reset form
+    setPalletsToShip({});
+    setSelectedVehicleId(null);
+  };
+  
+  const formatTime = (seconds: number) => {
+    if (seconds < 0 || !isFinite(seconds)) return '00:00';
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = Math.floor(seconds % 60);
+    return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
+  };
 
   return (
     <Card className="shadow-lg flex flex-col">
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-2xl font-headline">
           <Warehouse className="w-6 h-6 text-primary" />
-          Warehouse
+          Warehouse & Shipping
         </CardTitle>
-        <CardDescription>
-          Stores finished goods ready for shipping.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4 flex-grow">
-        <div>
-          <div className="flex justify-between items-center mb-1">
-            <span className="font-medium">Storage</span>
-            <span className="text-muted-foreground">{totalPallets.toLocaleString()} / {state.warehouseCapacity.toLocaleString()} Pallets</span>
-          </div>
-          <Progress value={warehouseUsage} className="transition-all duration-500 ease-out" />
+        <div className="flex justify-between items-center pt-2">
+            <span className="font-medium text-sm">Storage Capacity</span>
+            <span className="text-muted-foreground text-sm">{totalStoredPallets.toLocaleString()} / {state.warehouseCapacity.toLocaleString()} Pallets</span>
         </div>
-        
+        <Progress value={warehouseUsage} className="transition-all duration-500 ease-out h-2" />
         {isFull && (
-          <div className="flex items-center p-3 rounded-md bg-destructive/10 text-destructive border border-destructive/20">
-            <AlertCircle className="w-5 h-5 mr-2" />
-            <p className="text-sm font-medium">Warehouse full! Production is blocked.</p>
+          <div className="flex items-center pt-2 text-destructive text-xs">
+            <AlertCircle className="w-4 h-4 mr-1" />
+            <p className="font-medium">Warehouse full! Production may be blocked.</p>
           </div>
         )}
+      </CardHeader>
+      
+      <CardContent className="flex-grow space-y-6">
+        <Separator />
+        
+        {/* SHIPMENT CREATION */}
+        <div className="space-y-4">
+          <h3 className="font-semibold font-headline">Create Shipment</h3>
+          
+          {totalStoredPallets > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Pallet Selection */}
+              <div className="space-y-2">
+                <Label>1. Select Pallets</Label>
+                <ScrollArea className="h-40 w-full rounded-md border p-2">
+                  <div className="space-y-2">
+                    {Object.entries(state.pallets).map(([productName, details]) => (
+                      <div key={productName} className="flex items-center gap-2 text-sm">
+                        <Input 
+                          type="number"
+                          value={palletsToShip[productName] || 0}
+                          onChange={(e) => handlePalletSelectionChange(productName, parseInt(e.target.value, 10))}
+                          className="h-8 w-20"
+                          min="0"
+                          max={details.quantity}
+                        />
+                        <div className="flex-grow truncate">
+                          <p className="font-medium truncate" title={productName}>{productName}</p>
+                          <p className="text-xs text-muted-foreground">({details.quantity} available)</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </ScrollArea>
+              </div>
 
-        {totalPallets > 0 && (
-          <>
-            <Separator />
-            <div className="space-y-2">
-                <h4 className="font-medium">Stored Goods</h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-2 text-sm">
-                {Object.entries(state.pallets).map(([productName, details]) => (
-                    <div key={productName} className="flex items-center justify-between bg-secondary/30 p-2 rounded-md">
-                        <span className="flex items-center gap-1.5 truncate" title={productName}><Package className="w-4 h-4 text-muted-foreground flex-shrink-0" /> <span className="truncate">{productName}</span></span>
-                        <span className="font-mono">{details.quantity.toLocaleString()}</span>
-                    </div>
-                ))}
-                </div>
+              {/* Vehicle Selection */}
+              <div className="space-y-2">
+                <Label>2. Select Vehicle</Label>
+                <RadioGroup value={selectedVehicleId || ''} onValueChange={setSelectedVehicleId} className="rounded-md border p-2 space-y-1">
+                  {Object.values(state.vehicles).map(vehicle => (
+                    <Label key={vehicle.id} htmlFor={vehicle.id} className="flex items-center justify-between p-2 rounded-md hover:bg-secondary/50 cursor-pointer text-sm">
+                      <div className="flex items-center gap-2">
+                        <RadioGroupItem value={vehicle.id} id={vehicle.id} />
+                        <vehicle.icon className="w-4 h-4" />
+                        {vehicle.name}
+                      </div>
+                      <div className="text-xs text-muted-foreground text-right">
+                        <p>Cap: {vehicle.capacity}</p>
+                        <p>Time: {vehicle.deliveryTime}s</p>
+                      </div>
+                    </Label>
+                  ))}
+                </RadioGroup>
+              </div>
             </div>
-          </>
-        )}
+          ) : (
+             <p className="text-sm text-center text-muted-foreground py-8">No goods in warehouse to ship.</p>
+          )}
+        </div>
+
+        {/* ACTIVE SHIPMENTS */}
+        <div className="space-y-2">
+          <h3 className="font-semibold font-headline">Active Shipments</h3>
+           <ScrollArea className="h-24 pr-4">
+          {state.activeShipments.length > 0 ? (
+            <div className="space-y-2">
+              {state.activeShipments.map(shipment => {
+                const timeRemaining = (shipment.arrivalTime - Date.now()) / 1000;
+                const progress = (1 - (timeRemaining / shipment.vehicle.deliveryTime)) * 100;
+                return (
+                  <div key={shipment.id} className="text-sm p-2 rounded-md bg-secondary/50">
+                    <div className="flex justify-between items-center">
+                      <span className="font-medium flex items-center gap-2"><Truck className="w-4 h-4 text-primary" /> {shipment.vehicle.name}</span>
+                      <span className="font-mono text-green-600">${shipment.totalValue.toLocaleString()}</span>
+                    </div>
+                     <Progress value={progress} className="h-1 mt-1" />
+                    <div className="flex justify-between items-center text-xs text-muted-foreground mt-1">
+                        <span>{shipment.totalQuantity} pallets</span>
+                        <span>{formatTime(timeRemaining)}</span>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          ) : (
+            <p className="text-sm text-center text-muted-foreground py-4">No active shipments.</p>
+          )}
+           </ScrollArea>
+        </div>
       </CardContent>
-      <CardFooter>
+      
+      <CardFooter className="flex-col items-stretch space-y-2">
+        <Separator />
+        <div className="flex justify-between items-center text-sm p-1">
+          <span className="font-semibold">Selected:</span>
+          <div className="text-right space-y-1">
+            <p className="flex items-center gap-1.5 justify-end"><Package className="w-4 h-4" />{totalSelectedQuantity.toLocaleString()} pallets</p>
+            <p className="flex items-center gap-1.5 justify-end"><CircleDollarSign className="w-4 h-4" />${totalSelectedValue.toLocaleString()}</p>
+          </div>
+        </div>
         <Button 
-          onClick={handleShip}
-          disabled={totalPallets === 0}
+          onClick={handleDispatch}
+          disabled={totalSelectedQuantity === 0 || !selectedVehicleId || totalSelectedQuantity > (selectedVehicle?.capacity ?? 0)}
           className="w-full bg-accent hover:bg-accent/90 text-accent-foreground"
           size="lg"
         >
           <Truck className="mr-2 h-5 w-5" />
-          Ship All Goods
+          Dispatch Shipment
         </Button>
       </CardFooter>
     </Card>

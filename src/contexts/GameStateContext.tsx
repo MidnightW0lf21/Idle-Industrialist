@@ -1,14 +1,14 @@
 "use client";
 
 import React, { createContext, useContext, useReducer, useEffect, ReactNode } from 'react';
-import type { GameState, GameAction, Order, ProductionLine, Upgrade, StoredPallet, Worker } from '@/types';
+import type { GameState, GameAction, Order, ProductionLine, Upgrade, StoredPallet, Worker, Vehicle, Shipment } from '@/types';
 import { generateNewOrder } from '@/ai/flows/order-generation-flow';
+import { Truck } from 'lucide-react';
+import { useToast } from "@/hooks/use-toast"
 
 const initialOrders: Order[] = [
   { id: 1, productName: "1k Ohm Resistors", quantity: 100, reward: 1500, timeToProduce: 6000 },
   { id: 2, productName: "10uF Ceramic Capacitors", quantity: 50, reward: 2500, timeToProduce: 4500 },
-  { id: 3, productName: "5mm Red LEDs", quantity: 75, reward: 1000, timeToProduce: 3000 },
-  { id: 4, productName: "ATmega328P Microcontrollers", quantity: 10, reward: 5000, timeToProduce: 2400 },
 ];
 
 const initialUpgrades: Record<string, Upgrade> = {
@@ -21,6 +21,11 @@ const initialWorkers: Worker[] = [
     { id: 1, name: "Alice", wage: 1, assignedLineId: null, energy: 100, maxEnergy: 100, efficiency: 1, stamina: 1, efficiencyLevel: 1, staminaLevel: 1 },
 ];
 
+const initialVehicles: Record<string, Vehicle> = {
+  pickup: { id: 'pickup', name: 'Pickup Truck', capacity: 10, deliveryTime: 30, icon: Truck },
+  boxtruck: { id: 'boxtruck', name: 'Box Truck', capacity: 50, deliveryTime: 90, icon: Truck },
+}
+
 const NEW_ORDER_INTERVAL = 30000; // 30 seconds
 const WORKER_HIRE_COST = 500;
 const POSSIBLE_WORKER_NAMES = ["Charlie", "Dana", "Eli", "Frankie", "Gabi", "Harper", "Izzy", "Jordan", "Kai", "Leo", "Bob"];
@@ -29,13 +34,15 @@ const POSSIBLE_WORKER_NAMES = ["Charlie", "Dana", "Eli", "Frankie", "Gabi", "Har
 const initialState: GameState = {
   money: 500,
   pallets: {},
-  warehouseCapacity: 100,
+  warehouseCapacity: 20,
   productionLines: [{ id: 1, orderId: null, productName: null, progress: 0, timeToProduce: 0, efficiency: 1, quantity: 0, reward: 0, completedQuantity: 0, assignedWorkerId: null }],
   availableOrders: initialOrders,
   productionQueue: [],
   upgrades: initialUpgrades,
   lastOrderTimestamp: Date.now(),
   workers: initialWorkers,
+  vehicles: initialVehicles,
+  activeShipments: [],
 };
 
 const gameReducer = (state: GameState, action: GameAction): GameState => {
@@ -43,6 +50,17 @@ const gameReducer = (state: GameState, action: GameAction): GameState => {
     case 'TICK': {
       let newState = { ...state };
       let palletsInWarehouse = Object.values(newState.pallets).reduce((sum, p) => sum + p.quantity, 0);
+
+      // --- Handle Completed Shipments ---
+      const now = Date.now();
+      const completedShipments = newState.activeShipments.filter(s => now >= s.arrivalTime);
+      
+      if (completedShipments.length > 0) {
+        const totalEarnings = completedShipments.reduce((sum, s) => sum + s.totalValue, 0);
+        newState.money += totalEarnings;
+        newState.activeShipments = newState.activeShipments.filter(s => now < s.arrivalTime);
+        // Toast notification is handled in the component via useEffect
+      }
 
       // Deduct wages only for assigned workers
       const totalWage = newState.workers
@@ -54,7 +72,6 @@ const gameReducer = (state: GameState, action: GameAction): GameState => {
       const exhaustedWorkerIds = new Set<number>();
       newState.workers = newState.workers.map(worker => {
           if (worker.assignedLineId !== null) {
-              // Deplete energy if working, considering stamina
               const energyDepletion = 0.5 / worker.stamina;
               const newEnergy = worker.energy - energyDepletion;
               if (newEnergy <= 0) {
@@ -63,7 +80,6 @@ const gameReducer = (state: GameState, action: GameAction): GameState => {
               }
               return { ...worker, energy: newEnergy };
           } else {
-              // Regenerate energy if idle
               const newEnergy = Math.min(worker.maxEnergy, worker.energy + 0.25);
               return { ...worker, energy: newEnergy };
           }
@@ -71,22 +87,20 @@ const gameReducer = (state: GameState, action: GameAction): GameState => {
       
       // Production Logic
       newState.productionLines = newState.productionLines.map(line => {
-        // Unassign exhausted worker
         if (line.assignedWorkerId && exhaustedWorkerIds.has(line.assignedWorkerId)) {
             line.assignedWorkerId = null;
         }
         
-        // Line must have an order AND a worker to run
         if (line.orderId === null || line.assignedWorkerId === null) {
           return line;
         }
         
         const worker = newState.workers.find(w => w.id === line.assignedWorkerId);
-        if (!worker) return line; // Should not happen if assigned
+        if (!worker) return line;
 
         const spaceAvailable = newState.warehouseCapacity - palletsInWarehouse;
         if (spaceAvailable <= 0) {
-          return line; // Production is blocked
+          return line;
         }
 
         const effectiveEfficiency = line.efficiency * worker.efficiency;
@@ -117,7 +131,6 @@ const gameReducer = (state: GameState, action: GameAction): GameState => {
         }
         
         if (updatedLine.progress >= 100 && updatedLine.completedQuantity >= line.quantity) {
-          // Reset the line, keeping its ID and efficiency
           return { ...line, orderId: null, productName: null, progress: 0, timeToProduce: 0, quantity: 0, reward: 0, completedQuantity: 0 };
         }
 
@@ -144,7 +157,6 @@ const gameReducer = (state: GameState, action: GameAction): GameState => {
         }
       }
       
-      // Update timestamp for AI Order Generation
       if (Date.now() - newState.lastOrderTimestamp > NEW_ORDER_INTERVAL) {
         newState.lastOrderTimestamp = Date.now();
       }
@@ -161,17 +173,50 @@ const gameReducer = (state: GameState, action: GameAction): GameState => {
       };
     }
 
-    case 'SHIP_GOODS': {
-      if (Object.keys(state.pallets).length === 0) return state;
+    case 'START_SHIPMENT': {
+      const { vehicleId, palletsToShip } = action;
+      const vehicle = state.vehicles[vehicleId];
+      if (!vehicle) return state;
+
+      const newPalletsState = { ...state.pallets };
+      const shipmentPallets: Record<string, StoredPallet> = {};
+      let totalQuantity = 0;
+      let totalValue = 0;
+
+      for (const [productName, quantity] of Object.entries(palletsToShip)) {
+        if (quantity > 0 && newPalletsState[productName]) {
+          const available = newPalletsState[productName].quantity;
+          const toShip = Math.min(quantity, available);
+          
+          shipmentPallets[productName] = { quantity: toShip, value: newPalletsState[productName].value };
+          totalQuantity += toShip;
+          totalValue += toShip * newPalletsState[productName].value;
+
+          newPalletsState[productName].quantity -= toShip;
+          if (newPalletsState[productName].quantity <= 0) {
+            delete newPalletsState[productName];
+          }
+        }
+      }
+
+      if (totalQuantity === 0 || totalQuantity > vehicle.capacity) {
+        // Nothing to ship or exceeding capacity, do nothing
+        return state;
+      }
       
-      const earnings = Object.values(state.pallets).reduce((sum, p) => {
-        return sum + (p.quantity * p.value);
-      }, 0);
+      const newShipment: Shipment = {
+        id: (Math.max(...state.activeShipments.map(s => s.id), 0) || 0) + 1,
+        vehicle,
+        pallets: shipmentPallets,
+        totalValue,
+        totalQuantity,
+        arrivalTime: Date.now() + vehicle.deliveryTime * 1000,
+      };
 
       return {
         ...state,
-        money: state.money + earnings,
-        pallets: {},
+        pallets: newPalletsState,
+        activeShipments: [...state.activeShipments, newShipment],
       };
     }
     
@@ -215,10 +260,8 @@ const gameReducer = (state: GameState, action: GameAction): GameState => {
       const existingNames = new Set(state.workers.map(w => w.name));
       let availableNames = POSSIBLE_WORKER_NAMES.filter(n => !existingNames.has(n));
        if (availableNames.length === 0) {
-        // If all default names are used, add more generic names
         availableNames = [`Worker #${state.workers.length + 1}`]
       }
-
 
       const newWorker: Worker = {
         id: (Math.max(...state.workers.map(w => w.id), 0) || 0) + 1,
@@ -244,7 +287,6 @@ const gameReducer = (state: GameState, action: GameAction): GameState => {
       const { workerId, lineId } = action;
       
       const workerToAssign = state.workers.find(w => w.id === workerId);
-      // Prevent assigning exhausted worker
       if (!workerToAssign || workerToAssign.energy <= 0) return state;
 
       const newWorkers = state.workers.map(w => ({ ...w }));
@@ -253,24 +295,20 @@ const gameReducer = (state: GameState, action: GameAction): GameState => {
       const targetWorker = newWorkers.find(w => w.id === workerId)!;
       const oldLineId = targetWorker.assignedLineId;
 
-      // 1. Unassign from old line
       if (oldLineId !== null) {
         const oldLine = newLines.find(l => l.id === oldLineId);
         if (oldLine) oldLine.assignedWorkerId = null;
       }
 
-      // 2. Assign to new line (if one was selected)
       if (lineId !== null) {
         const newLine = newLines.find(l => l.id === lineId);
         if (newLine && newLine.assignedWorkerId === null) {
           newLine.assignedWorkerId = workerId;
           targetWorker.assignedLineId = lineId;
         } else {
-          // New line is already taken, revert worker to idle
            targetWorker.assignedLineId = null;
         }
       } else {
-        // This was an unassign action, set worker to idle
         targetWorker.assignedLineId = null;
       }
       
@@ -308,7 +346,7 @@ const gameReducer = (state: GameState, action: GameAction): GameState => {
           return { ...state, money: state.money - cost, workers: newWorkers };
         }
       }
-      return state; // Not enough money or invalid upgrade type
+      return state;
     }
 
 
@@ -321,6 +359,7 @@ const GameStateContext = createContext<{ state: GameState; dispatch: React.Dispa
 
 export const GameStateProvider = ({ children }: { children: ReactNode }) => {
   const [state, dispatch] = useReducer(gameReducer, initialState);
+  const { toast } = useToast();
 
   // Game Loop
   useEffect(() => {
@@ -330,14 +369,30 @@ export const GameStateProvider = ({ children }: { children: ReactNode }) => {
 
     return () => clearInterval(gameLoop);
   }, []);
+  
+  // Effect to watch for completed shipments and show toast
+  useEffect(() => {
+    const { activeShipments } = state;
+    const completedShipments = activeShipments.filter(s => Date.now() >= s.arrivalTime);
+
+    if (completedShipments.length > 0) {
+      const totalEarnings = completedShipments.reduce((sum, s) => sum + s.totalValue, 0);
+      const totalPallets = completedShipments.reduce((sum, s) => sum + s.totalQuantity, 0);
+      toast({
+        title: "Shipment Arrived!",
+        description: `You earned $${Math.floor(totalEarnings).toLocaleString()} for ${totalPallets} pallets.`,
+      })
+    }
+  // This effect should only run when activeShipments changes
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.activeShipments.length]);
+
 
   // Effect for AI order generation
   const { money, productionLines, warehouseCapacity, availableOrders, pallets, lastOrderTimestamp } = state;
   useEffect(() => {
-    // This function is defined inside useEffect to capture the latest state
     const generate = async () => {
-      // Don't overwhelm the player, and don't generate if there are still initial orders
-      if (availableOrders.length >= 10 || availableOrders.some(o => o.id <= 4)) return;
+      if (availableOrders.length >= 10) return;
 
       const totalPallets = Object.values(pallets).reduce((sum, p) => sum + p.quantity, 0);
       const warehouseUsage = (totalPallets / warehouseCapacity) * 100;
@@ -361,7 +416,6 @@ export const GameStateProvider = ({ children }: { children: ReactNode }) => {
       }
     };
     generate();
-    // Re-run this effect ONLY when lastOrderTimestamp changes
   }, [lastOrderTimestamp]);
 
   return (

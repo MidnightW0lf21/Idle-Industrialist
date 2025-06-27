@@ -1,3 +1,5 @@
+import type { LucideIcon } from "lucide-react";
+
 export interface Order {
   id: number;
   productName: string;
@@ -45,6 +47,23 @@ export interface StoredPallet {
     value: number; // price per pallet
 }
 
+export interface Vehicle {
+  id: string;
+  name: string;
+  capacity: number;
+  deliveryTime: number; // base time in seconds
+  icon: LucideIcon;
+}
+
+export interface Shipment {
+  id: number;
+  vehicle: Vehicle;
+  pallets: Record<string, StoredPallet>;
+  totalValue: number;
+  totalQuantity: number;
+  arrivalTime: number; // timestamp
+}
+
 export interface GameState {
   money: number;
   pallets: Record<string, StoredPallet>;
@@ -55,13 +74,15 @@ export interface GameState {
   upgrades: Record<string, Upgrade>;
   lastOrderTimestamp: number;
   workers: Worker[];
+  vehicles: Record<string, Vehicle>;
+  activeShipments: Shipment[];
 }
 
 export type GameAction =
   | { type: 'TICK' }
   | { type: 'ACCEPT_ORDER'; order: Order }
   | { type: 'PURCHASE_UPGRADE'; upgradeId: string }
-  | { type: 'SHIP_GOODS' }
+  | { type: 'START_SHIPMENT'; vehicleId: string; palletsToShip: Record<string, number> }
   | { type: 'ADD_ORDER', order: Order }
   | { type: 'HIRE_WORKER' }
   | { type: 'ASSIGN_WORKER'; workerId: number; lineId: number | null }

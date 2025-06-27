@@ -33,6 +33,7 @@ export interface ProductionLine {
   reward: number;
   completedQuantity: number;
   assignedWorkerId: number | null;
+  isBlockedByMaterials?: boolean;
 }
 
 export interface Upgrade {
@@ -66,9 +67,20 @@ export interface Shipment {
   arrivalTime: number; // timestamp
 }
 
+export interface Invoice {
+  id: number;
+  itemName: string;
+  quantity: number;
+  totalCost: number;
+  status: 'unpaid' | 'paid' | 'delivered';
+  deliveryTime: number; // delivery time in seconds
+  deliveryArrivalTime?: number; // timestamp
+}
+
 export interface GameState {
   money: number;
   pallets: Record<string, StoredPallet>;
+  rawMaterials: Record<string, { quantity: number }>;
   warehouseCapacity: number;
   productionLines: ProductionLine[];
   availableOrders: Order[];
@@ -78,6 +90,7 @@ export interface GameState {
   workers: Worker[];
   vehicles: Record<string, Vehicle>;
   activeShipments: Shipment[];
+  invoices: Invoice[];
 }
 
 export type GameAction =
@@ -89,4 +102,6 @@ export type GameAction =
   | { type: 'HIRE_WORKER' }
   | { type: 'ASSIGN_WORKER'; workerId: number; lineId: number | null }
   | { type: 'UPGRADE_WORKER'; workerId: number; upgradeType: 'efficiency' | 'stamina' }
-  | { type: 'UPGRADE_PRODUCTION_LINE'; lineId: number };
+  | { type: 'UPGRADE_PRODUCTION_LINE'; lineId: number }
+  | { type: 'ORDER_RAW_MATERIALS'; itemName: string; quantity: number; cost: number; deliveryTime: number }
+  | { type: 'PAY_INVOICE'; invoiceId: number };

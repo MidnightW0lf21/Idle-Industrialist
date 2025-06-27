@@ -1,7 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useReducer, useEffect, ReactNode } from 'react';
-import type { GameState, GameAction, Order, ProductionLine, Upgrade, StoredPallet, Worker, Vehicle, Shipment } from '@/types';
+import type { GameState, GameAction, Order, ProductionLine, Upgrade, StoredPallet, Worker, Vehicle, Shipment, Invoice } from '@/types';
 import { generateNewOrder } from '@/ai/flows/order-generation-flow';
 import { Truck, MoveHorizontal, Car } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast"
@@ -44,11 +44,13 @@ const LINE_EFFICIENCY_UPGRADE_BASE_COST = 400;
 const LINE_EFFICIENCY_CAP = 5;
 const MAX_PRODUCTION_LINES = 12;
 const MAX_WAREHOUSE_CAPACITY = 1500;
+const MATERIALS_PER_PALLET = 2;
 
 
 const initialState: GameState = {
   money: 500,
   pallets: {},
+  rawMaterials: { "Electronic Components": { quantity: 50 } },
   warehouseCapacity: 20,
   productionLines: [{ id: 1, orderId: null, productName: null, progress: 0, timeToProduce: 0, efficiency: 1, efficiencyLevel: 1, quantity: 0, reward: 0, completedQuantity: 0, assignedWorkerId: null }],
   availableOrders: initialOrders,
@@ -60,6 +62,7 @@ const initialState: GameState = {
     wheelbarrow: ALL_VEHICLES.wheelbarrow
   },
   activeShipments: [],
+  invoices: [],
 };
 
 const gameReducer = (state: GameState, action: GameAction): GameState => {
@@ -70,13 +73,15 @@ const gameReducer = (state: GameState, action: GameAction): GameState => {
       for (const key in newPallets) {
         newPallets[key] = { ...newPallets[key] };
       }
-      
+
       let newState = {
         ...state,
         pallets: newPallets,
+        rawMaterials: { ...state.rawMaterials, "Electronic Components": { ...state.rawMaterials["Electronic Components"] } },
         workers: state.workers.map(w => ({...w})),
         productionLines: state.productionLines.map(l => ({...l})),
-        activeShipments: state.activeShipments.map(s => ({...s}))
+        activeShipments: state.activeShipments.map(s => ({...s})),
+        invoices: state.invoices.map(i => ({...i}))
       };
 
       let palletsInWarehouse = Object.values(newState.pallets).reduce((sum, p) => sum + p.quantity, 0);
@@ -91,6 +96,17 @@ const gameReducer = (state: GameState, action: GameAction): GameState => {
         newState.activeShipments = newState.activeShipments.filter(s => now < s.arrivalTime);
         // Toast notification is handled in the component via useEffect
       }
+
+      // --- Handle Delivered Invoices ---
+      const deliveredInvoices = newState.invoices.filter(i => i.status === 'paid' && now >= i.deliveryArrivalTime!);
+      if (deliveredInvoices.length > 0) {
+        for (const invoice of deliveredInvoices) {
+          const existing = newState.rawMaterials[invoice.itemName] || { quantity: 0 };
+          newState.rawMaterials[invoice.itemName] = { quantity: existing.quantity + invoice.quantity };
+        }
+        newState.invoices = newState.invoices.filter(i => !(i.status === 'paid' && now >= i.deliveryArrivalTime!));
+      }
+
 
       // Deduct wages only for assigned workers
       const totalWage = newState.workers
@@ -117,7 +133,7 @@ const gameReducer = (state: GameState, action: GameAction): GameState => {
       
       // Production Logic
       newState.productionLines = newState.productionLines.map(line => {
-        let currentLine = {...line};
+        let currentLine = {...line, isBlockedByMaterials: false}; // Reset block status
         if (currentLine.assignedWorkerId && exhaustedWorkerIds.has(currentLine.assignedWorkerId)) {
             currentLine.assignedWorkerId = null;
         }
@@ -128,6 +144,12 @@ const gameReducer = (state: GameState, action: GameAction): GameState => {
         
         const worker = newState.workers.find(w => w.id === currentLine.assignedWorkerId);
         if (!worker) return currentLine;
+
+        // Check for materials
+        if ((newState.rawMaterials['Electronic Components']?.quantity || 0) < MATERIALS_PER_PALLET) {
+          currentLine.isBlockedByMaterials = true;
+          return currentLine;
+        }
 
         const spaceAvailable = newState.warehouseCapacity - palletsInWarehouse;
         if (spaceAvailable <= 0) {
@@ -144,9 +166,18 @@ const gameReducer = (state: GameState, action: GameAction): GameState => {
         currentLine.progress = newProgress;
 
         if (newlyProduced > 0) {
-          const palletsToAdd = Math.min(newlyProduced, spaceAvailable);
+          const materialsNeeded = newlyProduced * MATERIALS_PER_PALLET;
+          const materialsAvailable = newState.rawMaterials['Electronic Components']?.quantity || 0;
+          
+          const canProduceNum = Math.floor(materialsAvailable / MATERIALS_PER_PALLET);
+          const actualProductionAmount = Math.min(newlyProduced, canProduceNum);
+          
+          const palletsToAdd = Math.min(actualProductionAmount, spaceAvailable);
           
           if (palletsToAdd > 0) {
+            const materialsToConsume = palletsToAdd * MATERIALS_PER_PALLET;
+            newState.rawMaterials['Electronic Components'].quantity -= materialsToConsume;
+
             const productName = currentLine.productName!;
             const valuePerPallet = currentLine.reward / currentLine.quantity;
             const existingPallets = newState.pallets[productName] || { quantity: 0, value: valuePerPallet };
@@ -162,7 +193,7 @@ const gameReducer = (state: GameState, action: GameAction): GameState => {
         }
         
         if (currentLine.progress >= 100 && currentLine.completedQuantity >= currentLine.quantity) {
-          return { ...currentLine, orderId: null, productName: null, progress: 0, timeToProduce: 0, quantity: 0, reward: 0, completedQuantity: 0 };
+          return { ...currentLine, orderId: null, productName: null, progress: 0, timeToProduce: 0, quantity: 0, reward: 0, completedQuantity: 0, isBlockedByMaterials: false };
         }
 
         return currentLine;
@@ -458,6 +489,44 @@ const gameReducer = (state: GameState, action: GameAction): GameState => {
         };
 
         return { ...state, money: state.money - cost, productionLines: newLines };
+    }
+
+    case 'ORDER_RAW_MATERIALS': {
+      const { itemName, quantity, cost, deliveryTime } = action;
+      const newInvoice: Invoice = {
+        id: (Math.max(...state.invoices.map(i => i.id), 0) || 0) + 1,
+        itemName,
+        quantity,
+        totalCost: cost,
+        status: 'unpaid',
+        deliveryTime,
+      };
+      return {
+        ...state,
+        invoices: [...state.invoices, newInvoice],
+      };
+    }
+
+    case 'PAY_INVOICE': {
+      const { invoiceId } = action;
+      const invoiceIndex = state.invoices.findIndex(i => i.id === invoiceId);
+      if (invoiceIndex === -1) return state;
+      
+      const invoice = state.invoices[invoiceIndex];
+      if (state.money < invoice.totalCost || invoice.status !== 'unpaid') return state;
+
+      const newInvoices = [...state.invoices];
+      newInvoices[invoiceIndex] = {
+        ...invoice,
+        status: 'paid',
+        deliveryArrivalTime: Date.now() + invoice.deliveryTime * 1000,
+      };
+
+      return {
+        ...state,
+        money: state.money - invoice.totalCost,
+        invoices: newInvoices,
+      };
     }
 
 

@@ -4,7 +4,7 @@ import type { ProductionLine } from '@/types';
 import { useGameState } from '@/contexts/GameStateContext';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { Cog, Clock, Package, User, ArrowUpCircle, Zap } from 'lucide-react';
+import { Cog, Clock, Package, User, ArrowUpCircle, Zap, AlertTriangle } from 'lucide-react';
 import { Button } from './ui/button';
 import { useToast } from "@/hooks/use-toast"
 
@@ -52,13 +52,20 @@ export default function ProductionLineCard({ line }: ProductionLineCardProps) {
   const upgradeCost = Math.floor(LINE_EFFICIENCY_UPGRADE_BASE_COST * Math.pow(line.efficiencyLevel, 1.8));
   const atEffCap = line.efficiency >= LINE_EFFICIENCY_CAP;
 
+  const getStatusText = () => {
+    if (!line.orderId) return "Idle";
+    if (line.isBlockedByMaterials) return "Awaiting Materials";
+    if (!line.assignedWorkerId) return "Awaiting Worker";
+    return "Idle";
+  }
+
 
   return (
     <Card className="bg-secondary/50 flex flex-col">
       <CardHeader>
         <CardTitle className="flex items-start justify-between">
           <span className="flex items-center gap-2">
-            <Cog className={`w-5 h-5 ${line.orderId && line.assignedWorkerId ? 'animate-spin' : ''}`} style={{ animationDuration: `${Math.max(0.5, 5 / effectiveEfficiency)}s` }}/>
+            <Cog className={`w-5 h-5 ${line.orderId && line.assignedWorkerId && !line.isBlockedByMaterials ? 'animate-spin' : ''}`} style={{ animationDuration: `${Math.max(0.5, 5 / effectiveEfficiency)}s` }}/>
             Production Line {line.id}
           </span>
            <div className="w-28 text-right space-y-1">
@@ -90,10 +97,16 @@ export default function ProductionLineCard({ line }: ProductionLineCardProps) {
                 <span>{formatTime(timeRemaining)}</span>
               </div>
             </div>
+            {line.isBlockedByMaterials && (
+                <div className="flex items-center gap-2 text-destructive text-xs pt-1">
+                    <AlertTriangle className="w-4 h-4" />
+                    <p>Production halted: no materials!</p>
+                </div>
+            )}
           </div>
         ) : (
           <div className="text-center text-muted-foreground py-4">
-            <p>{line.assignedWorkerId ? "Idle" : "Awaiting Worker"}</p>
+            <p>{getStatusText()}</p>
           </div>
         )}
       </CardContent>

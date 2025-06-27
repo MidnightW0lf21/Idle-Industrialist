@@ -15,6 +15,7 @@ export interface ProductionLine {
   efficiency: number; // 1 = 100%
   quantity: number;
   reward: number;
+  completedQuantity: number;
 }
 
 export interface Upgrade {

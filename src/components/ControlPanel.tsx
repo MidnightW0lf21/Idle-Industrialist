@@ -8,15 +8,21 @@ import UpgradesTab from './UpgradesTab';
 import WorkersTab from './WorkersTab';
 import InvoicesTab from './InvoicesTab';
 import AchievementsTab from './AchievementsTab';
-import { ClipboardList, ArrowUpCircle, Users, FileText, Award } from 'lucide-react';
+import EventsTab from './EventsTab';
+import { ClipboardList, ArrowUpCircle, Users, FileText, Award, Megaphone } from 'lucide-react';
+import { useGameState } from '@/contexts/GameStateContext';
+import { cn } from '@/lib/utils';
 
 export default function ControlPanel() {
+  const { state } = useGameState();
+  const hasActiveEvent = !!state.activeEvent;
+
   return (
     <Card className="shadow-lg sticky top-24">
       <CardContent className="p-0">
         <Tabs defaultValue="orders" className="w-full">
           <TooltipProvider delayDuration={100}>
-            <TabsList className="grid w-full grid-cols-5 rounded-t-lg rounded-b-none">
+            <TabsList className="grid w-full grid-cols-6 rounded-t-lg rounded-b-none">
               <Tooltip>
                 <TooltipTrigger asChild>
                   <TabsTrigger value="orders">
@@ -37,6 +43,23 @@ export default function ControlPanel() {
                 </TooltipTrigger>
                 <TooltipContent>
                   <p>Invoices</p>
+                </TooltipContent>
+              </Tooltip>
+               <Tooltip>
+                <TooltipTrigger asChild>
+                  <TabsTrigger value="events" className="relative">
+                    <Megaphone className="h-5 w-5" />
+                     {hasActiveEvent && (
+                      <span className="absolute top-1.5 right-1.5 flex h-2.5 w-2.5">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-destructive opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-destructive"></span>
+                      </span>
+                    )}
+                    <span className="sr-only">Events</span>
+                  </TabsTrigger>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Events</p>
                 </TooltipContent>
               </Tooltip>
               <Tooltip>
@@ -80,6 +103,9 @@ export default function ControlPanel() {
             </TabsContent>
             <TabsContent value="invoices">
               <InvoicesTab />
+            </TabsContent>
+            <TabsContent value="events">
+              <EventsTab />
             </TabsContent>
             <TabsContent value="upgrades">
               <UpgradesTab />

@@ -5,7 +5,7 @@ import { useGameState, AVAILABLE_RAW_MATERIALS, RAW_MATERIAL_UNITS_PER_PALLET_SP
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
-import { Warehouse, Truck, AlertCircle, Package, Clock, CircleDollarSign, Component } from 'lucide-react';
+import { Warehouse, Truck, AlertCircle, Package, Clock, CircleDollarSign, Component, TrendingUp } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import { Separator } from '@/components/ui/separator';
 import { Input } from '@/components/ui/input';
@@ -49,11 +49,15 @@ export default function WarehouseDisplay() {
     for (const [productName, num] of Object.entries(palletsToShip)) {
       if (num > 0) {
         quantity += num;
-        value += num * (state.pallets[productName]?.value || 0);
+        let palletValue = state.pallets[productName]?.value || 0;
+        if (state.activeEvent?.type === 'PRODUCT_DEMAND_SURGE' && state.activeEvent.targetItem === productName) {
+            palletValue *= (state.activeEvent.priceMultiplier || 1);
+        }
+        value += num * palletValue;
       }
     }
     return { totalSelectedQuantity: quantity, totalSelectedValue: value };
-  }, [palletsToShip, state.pallets]);
+  }, [palletsToShip, state.pallets, state.activeEvent]);
 
   const selectedVehicle = selectedVehicleId ? state.vehicles[selectedVehicleId] : null;
 
@@ -85,6 +89,8 @@ export default function WarehouseDisplay() {
     const remainingSeconds = Math.floor(seconds % 60);
     return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
   };
+
+  const demandSurgeEvent = state.activeEvent?.type === 'PRODUCT_DEMAND_SURGE' ? state.activeEvent : null;
 
   return (
     <Card className="shadow-lg flex flex-col">
@@ -128,6 +134,12 @@ export default function WarehouseDisplay() {
         {/* SHIPMENT CREATION */}
         <div className="space-y-4">
           <h3 className="font-semibold font-headline">Create Shipment</h3>
+          {demandSurgeEvent && (
+              <div className="flex items-center gap-2 text-sm p-2 rounded-md bg-primary/10 text-primary">
+                <TrendingUp className="h-5 w-5" />
+                <p className="font-medium">{demandSurgeEvent.name}: Demand for {demandSurgeEvent.targetItem} is x{demandSurgeEvent.priceMultiplier?.toFixed(1)}!</p>
+              </div>
+          )}
           
           {totalStoredPallets > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -150,6 +162,9 @@ export default function WarehouseDisplay() {
                           <p className="font-medium truncate" title={productName}>{productName}</p>
                           <p className="text-xs text-muted-foreground">({details.quantity} available)</p>
                         </div>
+                         {demandSurgeEvent && demandSurgeEvent.targetItem === productName && (
+                           <TrendingUp className="h-4 w-4 text-primary shrink-0" />
+                         )}
                       </div>
                     ))}
                   </div>
@@ -221,7 +236,7 @@ export default function WarehouseDisplay() {
           <span className="font-semibold">Selected:</span>
           <div className="text-right space-y-1">
             <p className="flex items-center gap-1.5 justify-end"><Package className="w-4 h-4" />{isClient ? totalSelectedQuantity.toLocaleString() : totalSelectedQuantity} pallets</p>
-            <p className="flex items-center gap-1.5 justify-end"><CircleDollarSign className="w-4 h-4" />${isClient ? totalSelectedValue.toLocaleString() : totalSelectedValue}</p>
+            <p className="flex items-center gap-1.5 justify-end"><CircleDollarSign className="w-4 h-4" />${isClient ? totalSelectedValue.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0}) : totalSelectedValue}</p>
             {selectedVehicle && totalSelectedQuantity > 0 && (
               <p className="flex items-center gap-1.5 justify-end text-muted-foreground"><Clock className="w-4 h-4" />Est. Time: {formatTime(selectedVehicle.timePerPallet * totalSelectedQuantity)}</p>
             )}

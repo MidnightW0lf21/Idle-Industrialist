@@ -88,6 +88,22 @@ export interface Achievement {
   isCompleted: boolean;
 }
 
+export interface SpecialEvent {
+  id: number;
+  name: string;
+  description: string;
+  type: 'RAW_MATERIAL_PRICE_CHANGE' | 'PRODUCT_DEMAND_SURGE' | 'GLOBAL_EFFICIENCY_BOOST' | 'WORKER_STRIKE' | 'SUPPLY_CHAIN_DELAY';
+  duration: number; // in seconds
+  expiresAt: number; // timestamp
+  // Effect-specific fields
+  targetItem?: string;
+  priceMultiplier?: number;
+  efficiencyBoost?: number;
+  strikeDemand?: number;
+  delayTime?: number;
+  isResolved?: boolean; // For strikes
+}
+
 export interface GameState {
   money: number;
   pallets: Record<string, StoredPallet>;
@@ -106,6 +122,7 @@ export interface GameState {
   reputation: number;
   achievements: Record<string, Achievement>;
   totalPalletsShipped: number;
+  activeEvent: SpecialEvent | null;
 }
 
 export type GameAction =
@@ -120,4 +137,7 @@ export type GameAction =
   | { type: 'UPGRADE_WORKER'; workerId: number; upgradeType: 'efficiency' | 'stamina' }
   | { type: 'UPGRADE_PRODUCTION_LINE'; lineId: number }
   | { type: 'ORDER_RAW_MATERIALS'; materialName: string; quantity: number }
-  | { type: 'PAY_INVOICE'; invoiceId: number };
+  | { type: 'PAY_INVOICE'; invoiceId: number }
+  | { type: 'TRIGGER_EVENT'; event: SpecialEvent }
+  | { type: 'CLEAR_EVENT' }
+  | { type: 'RESOLVE_STRIKE' };

@@ -2,8 +2,9 @@
 "use client";
 
 import React, { createContext, useContext, useReducer, useEffect, ReactNode, useRef } from 'react';
-import type { GameState, GameAction, Order, ProductionLine, Upgrade, StoredPallet, Worker, Vehicle, Shipment, Invoice, Achievement } from '@/types';
+import type { GameState, GameAction, Order, ProductionLine, Upgrade, StoredPallet, Worker, Vehicle, Shipment, Invoice, Achievement, SpecialEvent } from '@/types';
 import { generateNewOrder } from '@/ai/flows/order-generation-flow';
+import { generateSpecialEvent } from '@/ai/flows/special-event-flow';
 import { Truck, MoveHorizontal, Car } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast"
 
@@ -90,6 +91,7 @@ const initialState: GameState = {
   reputation: 0,
   achievements: initialAchievements,
   totalPalletsShipped: 0,
+  activeEvent: null,
 };
 
 const gameReducer = (state: GameState, action: GameAction): GameState => {
@@ -97,6 +99,11 @@ const gameReducer = (state: GameState, action: GameAction): GameState => {
     case 'TICK': {
       const now = Date.now();
       const newState = JSON.parse(JSON.stringify(state)); // Deep copy for mutation safety
+      
+      // --- Handle Expired Event ---
+      if (newState.activeEvent && now >= newState.activeEvent.expiresAt) {
+          newState.activeEvent = null;
+      }
       
       const calculateUsedSpace = (s: GameState) => {
         const totalPallets = Object.values(s.pallets).reduce((sum, p) => sum + p.quantity, 0);
@@ -131,130 +138,134 @@ const gameReducer = (state: GameState, action: GameAction): GameState => {
         newState.invoices = newState.invoices.filter(i => !(i.status === 'paid' && now >= i.deliveryArrivalTime!));
       }
 
+      const isStrike = newState.activeEvent?.type === 'WORKER_STRIKE' && !newState.activeEvent.isResolved;
 
-      // --- Wages & Worker Energy ---
-      const totalWage = newState.workers
-        .filter(worker => worker.assignedLineId !== null)
-        .reduce((sum, worker) => sum + worker.wage, 0);
-      newState.money -= totalWage;
+      // --- Wages & Worker Energy (only if no strike) ---
+      if (!isStrike) {
+        const totalWage = newState.workers
+          .filter(worker => worker.assignedLineId !== null)
+          .reduce((sum, worker) => sum + worker.wage, 0);
+        newState.money -= totalWage;
 
-      const exhaustedWorkerIds = new Set<number>();
-      newState.workers = newState.workers.map(worker => {
-          if (worker.assignedLineId !== null) {
-              const energyDepletion = 0.5 / worker.stamina;
-              const newEnergy = worker.energy - energyDepletion;
-              if (newEnergy <= 0) {
-                  exhaustedWorkerIds.add(worker.id);
-                  return { ...worker, energy: 0, assignedLineId: null };
-              }
-              return { ...worker, energy: newEnergy };
-          } else {
-              const newEnergy = Math.min(worker.maxEnergy, worker.energy + 0.25);
-              return { ...worker, energy: newEnergy };
-          }
-      });
-      
-      // --- Production Logic ---
-      newState.productionLines = newState.productionLines.map(line => {
-        let currentLine = {...line, isBlockedByMaterials: false};
-        if (currentLine.assignedWorkerId && exhaustedWorkerIds.has(currentLine.assignedWorkerId)) {
-            currentLine.assignedWorkerId = null;
-        }
-        
-        if (currentLine.orderId === null || currentLine.assignedWorkerId === null) {
-          return currentLine;
-        }
-        
-        const worker = newState.workers.find(w => w.id === currentLine.assignedWorkerId);
-        if (!worker) return currentLine;
-
-        const spaceForNewPallets = newState.warehouseCapacity - totalUsedSpace;
-        if (spaceForNewPallets < 1) {
-          return currentLine; // Blocked by warehouse space
-        }
-        
-        const hasMaterialsForOne = Object.entries(currentLine.materialRequirements ?? {}).every(
-          ([material, needed]) => (newState.rawMaterials[material]?.quantity ?? 0) >= needed
-        );
-
-        if (!hasMaterialsForOne) {
-          currentLine.isBlockedByMaterials = true;
-          return currentLine;
-        }
-        
-        const effectiveEfficiency = currentLine.efficiency * worker.efficiency;
-        const progressIncrease = (100 / currentLine.timeToProduce) * effectiveEfficiency;
-        const newProgress = Math.min(100, currentLine.progress + progressIncrease);
-
-        const totalPalletsGoal = Math.floor((newProgress / 100) * currentLine.quantity);
-        const newlyProduced = totalPalletsGoal - currentLine.completedQuantity;
-        
-        currentLine.progress = newProgress;
-
-        if (newlyProduced > 0) {
-          let maxPalletsFromMaterials = Infinity;
-          for (const [material, neededPerPallet] of Object.entries(currentLine.materialRequirements ?? {})) {
-            const available = newState.rawMaterials[material]?.quantity || 0;
-            maxPalletsFromMaterials = Math.min(maxPalletsFromMaterials, Math.floor(available / neededPerPallet));
-          }
-
-          const palletsToAdd = Math.min(newlyProduced, maxPalletsFromMaterials, Math.floor(spaceForNewPallets));
-          
-          if (palletsToAdd > 0) {
-             for (const [material, neededPerPallet] of Object.entries(currentLine.materialRequirements ?? {})) {
-                newState.rawMaterials[material].quantity -= palletsToAdd * neededPerPallet;
-            }
-
-            const productName = currentLine.productName!;
-            const valuePerPallet = currentLine.reward / currentLine.quantity;
-            const existingPallets = newState.pallets[productName] || { quantity: 0, value: valuePerPallet };
-            
-            newState.pallets[productName] = {
-              quantity: existingPallets.quantity + palletsToAdd,
-              value: valuePerPallet,
-            };
-            
-            totalUsedSpace += palletsToAdd;
-            currentLine.completedQuantity += palletsToAdd;
-          } else if (!hasMaterialsForOne) {
-            currentLine.isBlockedByMaterials = true;
-          }
-        }
-        
-        if (currentLine.progress >= 100 && currentLine.completedQuantity >= currentLine.quantity) {
-           const completedOrder = newState.activeOrders.find(o => o.id === currentLine.orderId);
-            if (completedOrder) {
-                if (completedOrder.isContract && completedOrder.reputationReward) {
-                    newState.reputation = (newState.reputation || 0) + completedOrder.reputationReward;
+        const exhaustedWorkerIds = new Set<number>();
+        newState.workers = newState.workers.map(worker => {
+            if (worker.assignedLineId !== null) {
+                const energyDepletion = 0.5 / worker.stamina;
+                const newEnergy = worker.energy - energyDepletion;
+                if (newEnergy <= 0) {
+                    exhaustedWorkerIds.add(worker.id);
+                    return { ...worker, energy: 0, assignedLineId: null };
                 }
-                newState.activeOrders = newState.activeOrders.filter(o => o.id !== currentLine.orderId);
+                return { ...worker, energy: newEnergy };
+            } else {
+                const newEnergy = Math.min(worker.maxEnergy, worker.energy + 0.25);
+                return { ...worker, energy: newEnergy };
             }
-          return { ...currentLine, orderId: null, productName: null, progress: 0, timeToProduce: 0, quantity: 0, reward: 0, completedQuantity: 0, isBlockedByMaterials: false, materialRequirements: null };
-        }
+        });
+        
+        // --- Production Logic (only if no strike) ---
+        newState.productionLines = newState.productionLines.map(line => {
+          let currentLine = {...line, isBlockedByMaterials: false};
+          if (currentLine.assignedWorkerId && exhaustedWorkerIds.has(currentLine.assignedWorkerId)) {
+              currentLine.assignedWorkerId = null;
+          }
+          
+          if (currentLine.orderId === null || currentLine.assignedWorkerId === null) {
+            return currentLine;
+          }
+          
+          const worker = newState.workers.find(w => w.id === currentLine.assignedWorkerId);
+          if (!worker) return currentLine;
 
-        return currentLine;
-      });
+          const spaceForNewPallets = newState.warehouseCapacity - totalUsedSpace;
+          if (spaceForNewPallets < 1) {
+            return currentLine; // Blocked by warehouse space
+          }
+          
+          const hasMaterialsForOne = Object.entries(currentLine.materialRequirements ?? {}).every(
+            ([material, needed]) => (newState.rawMaterials[material]?.quantity ?? 0) >= needed
+          );
 
-      // Auto-assign from queue if a line is free and warehouse has space
-      const freeLineIndex = newState.productionLines.findIndex(l => l.orderId === null);
-      if (freeLineIndex !== -1 && newState.productionQueue.length > 0) {
-        if (totalUsedSpace < newState.warehouseCapacity) {
-            const nextOrder = newState.productionQueue[0];
-            newState.productionLines[freeLineIndex] = {
-                ...newState.productionLines[freeLineIndex],
-                orderId: nextOrder.id,
-                productName: nextOrder.productName,
-                timeToProduce: nextOrder.timeToProduce,
-                quantity: nextOrder.quantity,
-                reward: nextOrder.reward,
-                progress: 0,
-                completedQuantity: 0,
-                materialRequirements: nextOrder.materialRequirements,
-            };
-            newState.productionQueue = newState.productionQueue.slice(1);
-            newState.activeOrders.push(nextOrder);
+          if (!hasMaterialsForOne) {
+            currentLine.isBlockedByMaterials = true;
+            return currentLine;
+          }
+          
+          const efficiencyBoost = newState.activeEvent?.type === 'GLOBAL_EFFICIENCY_BOOST' ? (newState.activeEvent.efficiencyBoost || 1) : 1;
+          const effectiveEfficiency = currentLine.efficiency * worker.efficiency * efficiencyBoost;
+          const progressIncrease = (100 / currentLine.timeToProduce) * effectiveEfficiency;
+          const newProgress = Math.min(100, currentLine.progress + progressIncrease);
+
+          const totalPalletsGoal = Math.floor((newProgress / 100) * currentLine.quantity);
+          const newlyProduced = totalPalletsGoal - currentLine.completedQuantity;
+          
+          currentLine.progress = newProgress;
+
+          if (newlyProduced > 0) {
+            let maxPalletsFromMaterials = Infinity;
+            for (const [material, neededPerPallet] of Object.entries(currentLine.materialRequirements ?? {})) {
+              const available = newState.rawMaterials[material]?.quantity || 0;
+              maxPalletsFromMaterials = Math.min(maxPalletsFromMaterials, Math.floor(available / neededPerPallet));
+            }
+
+            const palletsToAdd = Math.min(newlyProduced, maxPalletsFromMaterials, Math.floor(spaceForNewPallets));
+            
+            if (palletsToAdd > 0) {
+              for (const [material, neededPerPallet] of Object.entries(currentLine.materialRequirements ?? {})) {
+                  newState.rawMaterials[material].quantity -= palletsToAdd * neededPerPallet;
+              }
+
+              const productName = currentLine.productName!;
+              const valuePerPallet = currentLine.reward / currentLine.quantity;
+              const existingPallets = newState.pallets[productName] || { quantity: 0, value: valuePerPallet };
+              
+              newState.pallets[productName] = {
+                quantity: existingPallets.quantity + palletsToAdd,
+                value: valuePerPallet,
+              };
+              
+              totalUsedSpace += palletsToAdd;
+              currentLine.completedQuantity += palletsToAdd;
+            } else if (!hasMaterialsForOne) {
+              currentLine.isBlockedByMaterials = true;
+            }
+          }
+          
+          if (currentLine.progress >= 100 && currentLine.completedQuantity >= currentLine.quantity) {
+            const completedOrder = newState.activeOrders.find(o => o.id === currentLine.orderId);
+              if (completedOrder) {
+                  if (completedOrder.isContract && completedOrder.reputationReward) {
+                      newState.reputation = (newState.reputation || 0) + completedOrder.reputationReward;
+                  }
+                  newState.activeOrders = newState.activeOrders.filter(o => o.id !== currentLine.orderId);
+              }
+            return { ...currentLine, orderId: null, productName: null, progress: 0, timeToProduce: 0, quantity: 0, reward: 0, completedQuantity: 0, isBlockedByMaterials: false, materialRequirements: null };
+          }
+
+          return currentLine;
+        });
+
+        // Auto-assign from queue if a line is free and warehouse has space
+        const freeLineIndex = newState.productionLines.findIndex(l => l.orderId === null);
+        if (freeLineIndex !== -1 && newState.productionQueue.length > 0) {
+          if (totalUsedSpace < newState.warehouseCapacity) {
+              const nextOrder = newState.productionQueue[0];
+              newState.productionLines[freeLineIndex] = {
+                  ...newState.productionLines[freeLineIndex],
+                  orderId: nextOrder.id,
+                  productName: nextOrder.productName,
+                  timeToProduce: nextOrder.timeToProduce,
+                  quantity: nextOrder.quantity,
+                  reward: nextOrder.reward,
+                  progress: 0,
+                  completedQuantity: 0,
+                  materialRequirements: nextOrder.materialRequirements,
+              };
+              newState.productionQueue = newState.productionQueue.slice(1);
+              newState.activeOrders.push(nextOrder);
+          }
         }
-      }
+      } // end if(!isStrike)
 
       // --- Achievement Checks ---
       const checkAndComplete = (id: string, condition: boolean) => {
@@ -301,7 +312,12 @@ const gameReducer = (state: GameState, action: GameAction): GameState => {
           
           shipmentPallets[productName] = { quantity: toShip, value: newPalletsState[productName].value };
           totalQuantity += toShip;
-          totalValue += toShip * newPalletsState[productName].value;
+
+          let palletValue = newPalletsState[productName].value;
+          if (state.activeEvent?.type === 'PRODUCT_DEMAND_SURGE' && state.activeEvent.targetItem === productName) {
+              palletValue *= (state.activeEvent.priceMultiplier || 1);
+          }
+          totalValue += toShip * palletValue;
 
           const newQuantity = available - toShip;
           if (newQuantity <= 0) {
@@ -588,10 +604,14 @@ const gameReducer = (state: GameState, action: GameAction): GameState => {
 
     case 'ORDER_RAW_MATERIALS': {
       const { materialName, quantity } = action;
+      let costMultiplier = 1;
+      if (state.activeEvent?.type === 'RAW_MATERIAL_PRICE_CHANGE' && state.activeEvent.targetItem === materialName) {
+        costMultiplier = state.activeEvent.priceMultiplier || 1;
+      }
       const materialDetails = AVAILABLE_RAW_MATERIALS[materialName];
       if (!materialDetails) return state;
 
-      const totalCost = materialDetails.costPerUnit * quantity;
+      const totalCost = materialDetails.costPerUnit * quantity * costMultiplier;
       const totalDeliveryTime = materialDetails.timePerUnit * quantity;
 
       const newInvoice: Invoice = {
@@ -615,12 +635,13 @@ const gameReducer = (state: GameState, action: GameAction): GameState => {
       
       const invoice = state.invoices[invoiceIndex];
       if (state.money < invoice.totalCost || invoice.status !== 'unpaid') return state;
-
+      
+      const delay = state.activeEvent?.type === 'SUPPLY_CHAIN_DELAY' ? (state.activeEvent.delayTime || 0) : 0;
       const newInvoices = [...state.invoices];
       newInvoices[invoiceIndex] = {
         ...invoice,
         status: 'paid',
-        deliveryArrivalTime: Date.now() + invoice.totalDeliveryTime * 1000,
+        deliveryArrivalTime: Date.now() + (invoice.totalDeliveryTime + delay) * 1000,
       };
 
       return {
@@ -629,6 +650,22 @@ const gameReducer = (state: GameState, action: GameAction): GameState => {
         invoices: newInvoices,
       };
     }
+    
+    case 'TRIGGER_EVENT':
+      return { ...state, activeEvent: action.event };
+      
+    case 'CLEAR_EVENT':
+      return { ...state, activeEvent: null };
+
+    case 'RESOLVE_STRIKE':
+      if (state.activeEvent?.type === 'WORKER_STRIKE' && state.money >= state.activeEvent.strikeDemand!) {
+          return {
+              ...state,
+              money: state.money - state.activeEvent.strikeDemand!,
+              activeEvent: { ...state.activeEvent, isResolved: true }
+          }
+      }
+      return state;
 
 
     default:
@@ -645,6 +682,7 @@ export const GameStateProvider = ({ children }: { children: ReactNode }) => {
   stateRef.current = state;
   const prevAchievementsRef = useRef(state.achievements);
   const prevReputationRef = useRef(state.reputation);
+  const lastEventIdRef = useRef<number | null>(null);
 
   // Game Loop
   useEffect(() => {
@@ -703,6 +741,22 @@ export const GameStateProvider = ({ children }: { children: ReactNode }) => {
     }
     prevReputationRef.current = state.reputation;
   }, [state.reputation, toast]);
+  
+  // Effect to watch for new events and show toast
+  useEffect(() => {
+    if (state.activeEvent && state.activeEvent.id !== lastEventIdRef.current) {
+        const isNegative = state.activeEvent.type === 'WORKER_STRIKE' || state.activeEvent.type === 'SUPPLY_CHAIN_DELAY' || (state.activeEvent.type === 'RAW_MATERIAL_PRICE_CHANGE' && (state.activeEvent.priceMultiplier || 1) > 1);
+        toast({
+            title: `New Event: ${state.activeEvent.name}`,
+            description: state.activeEvent.description,
+            variant: isNegative ? 'destructive' : 'default',
+            duration: 10000,
+        });
+        lastEventIdRef.current = state.activeEvent.id;
+    } else if (!state.activeEvent && lastEventIdRef.current !== null) {
+        lastEventIdRef.current = null;
+    }
+  }, [state.activeEvent, toast]);
 
 
   // Effect for AI order generation
@@ -758,6 +812,53 @@ export const GameStateProvider = ({ children }: { children: ReactNode }) => {
     return () => {
       isMounted = false;
       clearInterval(orderInterval);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Effect for AI event generation
+  useEffect(() => {
+    const EVENT_INTERVAL = 60000; // Every 60 seconds
+    const EVENT_CHANCE = 0.3; // 30% chance to trigger an event
+
+    let isMounted = true;
+    const generate = async () => {
+      const { money, reputation, productionLines, activeEvent } = stateRef.current;
+      
+      if (activeEvent || !isMounted || Math.random() > EVENT_CHANCE) return;
+
+      const input = {
+          playerMoney: money,
+          reputation: reputation,
+          productionLines: productionLines.length,
+      };
+      
+      try {
+        const eventData = await generateSpecialEvent(input);
+        if (!isMounted) return;
+
+        const allEventIds = [stateRef.current.activeEvent?.id].filter(Boolean) as number[];
+        const newId = (Math.max(0, ...allEventIds)) + 1;
+        const durationInSeconds = eventData.duration;
+        
+        const newEvent: SpecialEvent = {
+            ...eventData,
+            id: newId,
+            duration: durationInSeconds,
+            expiresAt: Date.now() + durationInSeconds * 1000,
+        };
+        
+        dispatch({ type: 'TRIGGER_EVENT', event: newEvent });
+      } catch (e) {
+        console.error("Failed to generate special event:", e);
+      }
+    };
+    
+    const eventInterval = setInterval(generate, EVENT_INTERVAL);
+
+    return () => {
+      isMounted = false;
+      clearInterval(eventInterval);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

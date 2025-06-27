@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
-import { ShoppingCart, FileText, Clock, Truck, Package } from 'lucide-react';
+import { ShoppingCart, FileText, Clock, Truck, TrendingUp, TrendingDown, AlertTriangle } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import { Progress } from './ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
@@ -23,18 +23,30 @@ export default function InvoicesTab() {
   const [totalCost, setTotalCost] = useState(0);
   const [totalTime, setTotalTime] = useState(0);
 
+  const priceChangeEvent = state.activeEvent?.type === 'RAW_MATERIAL_PRICE_CHANGE' ? state.activeEvent : null;
+  const deliveryDelayEvent = state.activeEvent?.type === 'SUPPLY_CHAIN_DELAY' ? state.activeEvent : null;
+  
   useEffect(() => {
     const materialDetails = AVAILABLE_RAW_MATERIALS[selectedMaterial];
     const numericQuantity = Number(quantity);
 
     if (materialDetails && numericQuantity > 0) {
-      setTotalCost(materialDetails.costPerUnit * numericQuantity);
-      setTotalTime(materialDetails.timePerUnit * numericQuantity);
+      let costMultiplier = 1;
+      if (priceChangeEvent && priceChangeEvent.targetItem === selectedMaterial) {
+        costMultiplier = priceChangeEvent.priceMultiplier || 1;
+      }
+      setTotalCost(materialDetails.costPerUnit * numericQuantity * costMultiplier);
+
+      let time = materialDetails.timePerUnit * numericQuantity;
+      if (deliveryDelayEvent) {
+          time += deliveryDelayEvent.delayTime || 0;
+      }
+      setTotalTime(time);
     } else {
       setTotalCost(0);
       setTotalTime(0);
     }
-  }, [selectedMaterial, quantity]);
+  }, [selectedMaterial, quantity, priceChangeEvent, deliveryDelayEvent]);
 
 
   const handleOrderMaterials = () => {
@@ -84,6 +96,18 @@ export default function InvoicesTab() {
           <CardDescription>Order shipments of raw materials to keep your factory running.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          {priceChangeEvent && (
+             <div className="flex items-center gap-2 text-sm p-2 rounded-md bg-destructive/10 text-destructive">
+              <TrendingUp className="h-5 w-5" />
+              <p className="font-medium">{priceChangeEvent.name}: {priceChangeEvent.targetItem} prices are x{priceChangeEvent.priceMultiplier?.toFixed(1)}!</p>
+            </div>
+          )}
+           {deliveryDelayEvent && (
+             <div className="flex items-center gap-2 text-sm p-2 rounded-md bg-destructive/10 text-destructive">
+              <AlertTriangle className="h-5 w-5" />
+              <p className="font-medium">{deliveryDelayEvent.name}: All deliveries delayed by {formatTime(deliveryDelayEvent.delayTime || 0)}!</p>
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-4">
              <div>
                 <Label htmlFor="material-select">Material</Label>
@@ -92,11 +116,24 @@ export default function InvoicesTab() {
                     <SelectValue placeholder="Select material..." />
                   </SelectTrigger>
                   <SelectContent>
-                    {Object.entries(AVAILABLE_RAW_MATERIALS).map(([name, details]) => (
-                      <SelectItem key={name} value={name}>
-                        {name} (${details.costPerUnit.toFixed(2)}/unit)
-                      </SelectItem>
-                    ))}
+                    {Object.entries(AVAILABLE_RAW_MATERIALS).map(([name, details]) => {
+                       let costMultiplier = 1;
+                        if (priceChangeEvent && priceChangeEvent.targetItem === name) {
+                          costMultiplier = priceChangeEvent.priceMultiplier || 1;
+                        }
+                       const displayCost = details.costPerUnit * costMultiplier;
+
+                      return (
+                        <SelectItem key={name} value={name}>
+                          {name} (${displayCost.toFixed(2)}/unit)
+                          {costMultiplier !== 1 && (
+                            costMultiplier > 1 
+                            ? <TrendingUp className="inline w-4 h-4 ml-2 text-destructive" />
+                            : <TrendingDown className="inline w-4 h-4 ml-2 text-green-500" />
+                          )}
+                        </SelectItem>
+                      )
+                    })}
                   </SelectContent>
                 </Select>
              </div>

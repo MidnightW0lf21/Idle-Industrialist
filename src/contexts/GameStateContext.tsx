@@ -19,12 +19,11 @@ const initialUpgrades: Record<string, Upgrade> = {
 
 const initialWorkers: Worker[] = [
     { id: 1, name: "Alice", wage: 1, assignedLineId: null, energy: 100, maxEnergy: 100, efficiency: 1, stamina: 1, efficiencyLevel: 1, staminaLevel: 1 },
-    { id: 2, name: "Bob", wage: 1, assignedLineId: null, energy: 100, maxEnergy: 100, efficiency: 1, stamina: 1, efficiencyLevel: 1, staminaLevel: 1 },
 ];
 
 const NEW_ORDER_INTERVAL = 30000; // 30 seconds
 const WORKER_HIRE_COST = 500;
-const POSSIBLE_WORKER_NAMES = ["Charlie", "Dana", "Eli", "Frankie", "Gabi", "Harper", "Izzy", "Jordan", "Kai", "Leo"];
+const POSSIBLE_WORKER_NAMES = ["Charlie", "Dana", "Eli", "Frankie", "Gabi", "Harper", "Izzy", "Jordan", "Kai", "Leo", "Bob"];
 
 
 const initialState: GameState = {
@@ -214,8 +213,12 @@ const gameReducer = (state: GameState, action: GameAction): GameState => {
       if (state.money < WORKER_HIRE_COST) return state;
       
       const existingNames = new Set(state.workers.map(w => w.name));
-      const availableNames = POSSIBLE_WORKER_NAMES.filter(n => !existingNames.has(n));
-      if (availableNames.length === 0) return state; // No more unique names
+      let availableNames = POSSIBLE_WORKER_NAMES.filter(n => !existingNames.has(n));
+       if (availableNames.length === 0) {
+        // If all default names are used, add more generic names
+        availableNames = [`Worker #${state.workers.length + 1}`]
+      }
+
 
       const newWorker: Worker = {
         id: (Math.max(...state.workers.map(w => w.id), 0) || 0) + 1,

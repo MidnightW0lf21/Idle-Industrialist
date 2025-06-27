@@ -82,7 +82,7 @@ export default function WorkersTab() {
         <h3 className="text-lg font-semibold mb-2 font-headline">Your Team</h3>
         <ScrollArea className="h-80 pr-4">
           <div className="space-y-4">
-            {state.workers.map(worker => {
+            {state.workers.length > 0 ? state.workers.map(worker => {
               const assignedLine = worker.assignedLineId ? state.productionLines.find(l => l.id === worker.assignedLineId) : null;
               const efficiencyUpgradeCost = Math.floor(UPGRADE_BASE_COST * Math.pow(worker.efficiencyLevel, 1.5));
               const staminaUpgradeCost = Math.floor(UPGRADE_BASE_COST * Math.pow(worker.staminaLevel, 1.5));
@@ -169,7 +169,7 @@ export default function WorkersTab() {
                   </CardFooter>
                 </Card>
               );
-            })}
+            }) : <p className="text-center text-muted-foreground p-4">No workers on your team. Hire one!</p>}
           </div>
         </ScrollArea>
       </div>

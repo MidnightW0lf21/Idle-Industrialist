@@ -12,17 +12,19 @@ const initialOrders: Order[] = [
 ];
 
 export const AVAILABLE_RAW_MATERIALS: Record<string, { costPerUnit: number, timePerUnit: number }> = {
-  'Resistors': { costPerUnit: 0.1, timePerUnit: 1 },
-  'Capacitors': { costPerUnit: 0.2, timePerUnit: 1.4 },
-  'Transistors': { costPerUnit: 0.5, timePerUnit: 1.8 },
-  'LEDs': { costPerUnit: 0.3, timePerUnit: 1 },
-  'PCBs': { costPerUnit: 2, timePerUnit: 8 },
-  'Integrated Circuits': { costPerUnit: 5, timePerUnit: 16 },
-  'Diodes': { costPerUnit: 0.25, timePerUnit: 1.2 },
-  'Inductors': { costPerUnit: 0.7, timePerUnit: 2.4 },
-  'Quartz Crystals': { costPerUnit: 1.5, timePerUnit: 5 },
-  'Switches': { costPerUnit: 0.8, timePerUnit: 2.0 },
+  'Resistors': { costPerUnit: 0.1, timePerUnit: 2 },
+  'Capacitors': { costPerUnit: 0.2, timePerUnit: 2.8 },
+  'Transistors': { costPerUnit: 0.5, timePerUnit: 3.6 },
+  'LEDs': { costPerUnit: 0.3, timePerUnit: 2 },
+  'PCBs': { costPerUnit: 2, timePerUnit: 16 },
+  'Integrated Circuits': { costPerUnit: 5, timePerUnit: 32 },
+  'Diodes': { costPerUnit: 0.25, timePerUnit: 2.4 },
+  'Inductors': { costPerUnit: 0.7, timePerUnit: 4.8 },
+  'Quartz Crystals': { costPerUnit: 1.5, timePerUnit: 10 },
+  'Switches': { costPerUnit: 0.8, timePerUnit: 4.0 },
 };
+
+export const RAW_MATERIAL_UNITS_PER_PALLET_SPACE = 1000;
 
 const ALL_VEHICLES: Record<string, Vehicle> = {
   wheelbarrow: { id: 'wheelbarrow', name: 'Wheelbarrow', capacity: 2, timePerPallet: 60, icon: MoveHorizontal },
@@ -63,9 +65,9 @@ const initialState: GameState = {
   money: 500,
   pallets: {},
   rawMaterials: { 
-    'Resistors': { quantity: 100 },
-    'Capacitors': { quantity: 50 },
-    'PCBs': { quantity: 10 },
+    'Resistors': { quantity: 1000 },
+    'Capacitors': { quantity: 500 },
+    'PCBs': { quantity: 100 },
   },
   warehouseCapacity: 20,
   productionLines: [{ id: 1, orderId: null, productName: null, progress: 0, timeToProduce: 0, efficiency: 1, efficiencyLevel: 1, quantity: 0, reward: 0, completedQuantity: 0, assignedWorkerId: null, materialRequirements: null }],
@@ -85,9 +87,15 @@ const gameReducer = (state: GameState, action: GameAction): GameState => {
   switch (action.type) {
     case 'TICK': {
       const now = Date.now();
-      let newState = JSON.parse(JSON.stringify(state)); // Deep copy for mutation safety
+      const newState = JSON.parse(JSON.stringify(state)); // Deep copy for mutation safety
       
-      let palletsInWarehouse = Object.values(newState.pallets).reduce((sum, p) => sum + p.quantity, 0);
+      const calculateUsedSpace = (s: GameState) => {
+        const totalPallets = Object.values(s.pallets).reduce((sum, p) => sum + p.quantity, 0);
+        const totalRawUnits = Object.values(s.rawMaterials).reduce((sum, m) => sum + (m?.quantity || 0), 0);
+        return totalPallets + (totalRawUnits / RAW_MATERIAL_UNITS_PER_PALLET_SPACE);
+      };
+
+      let totalUsedSpace = calculateUsedSpace(newState);
 
       // --- Handle Completed Shipments ---
       const completedShipments = newState.activeShipments.filter(s => now >= s.arrivalTime);
@@ -101,11 +109,17 @@ const gameReducer = (state: GameState, action: GameAction): GameState => {
       const deliveredInvoices = newState.invoices.filter(i => i.status === 'paid' && now >= i.deliveryArrivalTime!);
       if (deliveredInvoices.length > 0) {
         for (const invoice of deliveredInvoices) {
-          const existing = newState.rawMaterials[invoice.itemName] || { quantity: 0 };
-          newState.rawMaterials[invoice.itemName] = { quantity: existing.quantity + invoice.quantity };
+            const availableUnitSpace = Math.max(0, (newState.warehouseCapacity - totalUsedSpace) * RAW_MATERIAL_UNITS_PER_PALLET_SPACE);
+            const quantityToAdd = Math.min(invoice.quantity, Math.floor(availableUnitSpace));
+
+            const existing = newState.rawMaterials[invoice.itemName] || { quantity: 0 };
+            newState.rawMaterials[invoice.itemName] = { quantity: existing.quantity + quantityToAdd };
+            
+            totalUsedSpace += quantityToAdd / RAW_MATERIAL_UNITS_PER_PALLET_SPACE;
         }
         newState.invoices = newState.invoices.filter(i => !(i.status === 'paid' && now >= i.deliveryArrivalTime!));
       }
+
 
       // --- Wages & Worker Energy ---
       const totalWage = newState.workers
@@ -143,9 +157,9 @@ const gameReducer = (state: GameState, action: GameAction): GameState => {
         const worker = newState.workers.find(w => w.id === currentLine.assignedWorkerId);
         if (!worker) return currentLine;
 
-        const spaceAvailable = newState.warehouseCapacity - palletsInWarehouse;
-        if (spaceAvailable <= 0) {
-          return currentLine;
+        const spaceForNewPallets = newState.warehouseCapacity - totalUsedSpace;
+        if (spaceForNewPallets < 1) {
+          return currentLine; // Blocked by warehouse space
         }
         
         const hasMaterialsForOne = Object.entries(currentLine.materialRequirements ?? {}).every(
@@ -173,7 +187,7 @@ const gameReducer = (state: GameState, action: GameAction): GameState => {
             maxPalletsFromMaterials = Math.min(maxPalletsFromMaterials, Math.floor(available / neededPerPallet));
           }
 
-          const palletsToAdd = Math.min(newlyProduced, maxPalletsFromMaterials, spaceAvailable);
+          const palletsToAdd = Math.min(newlyProduced, maxPalletsFromMaterials, Math.floor(spaceForNewPallets));
           
           if (palletsToAdd > 0) {
              for (const [material, neededPerPallet] of Object.entries(currentLine.materialRequirements ?? {})) {
@@ -189,9 +203,9 @@ const gameReducer = (state: GameState, action: GameAction): GameState => {
               value: valuePerPallet,
             };
             
-            palletsInWarehouse += palletsToAdd;
+            totalUsedSpace += palletsToAdd;
             currentLine.completedQuantity += palletsToAdd;
-          } else {
+          } else if (!hasMaterialsForOne) {
             currentLine.isBlockedByMaterials = true;
           }
         }
@@ -206,8 +220,7 @@ const gameReducer = (state: GameState, action: GameAction): GameState => {
       // Auto-assign from queue if a line is free and warehouse has space
       const freeLineIndex = newState.productionLines.findIndex(l => l.orderId === null);
       if (freeLineIndex !== -1 && newState.productionQueue.length > 0) {
-        const currentTotalPallets = Object.values(newState.pallets).reduce((sum, p) => sum + p.quantity, 0);
-        if (currentTotalPallets < newState.warehouseCapacity) {
+        if (totalUsedSpace < newState.warehouseCapacity) {
             const nextOrder = newState.productionQueue[0];
             newState.productionLines[freeLineIndex] = {
                 ...newState.productionLines[freeLineIndex],

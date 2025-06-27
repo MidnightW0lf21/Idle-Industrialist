@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { useGameState, AVAILABLE_RAW_MATERIALS } from '@/contexts/GameStateContext';
+import { useGameState, AVAILABLE_RAW_MATERIALS, RAW_MATERIAL_UNITS_PER_PALLET_SPACE } from '@/contexts/GameStateContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
@@ -21,8 +21,12 @@ export default function WarehouseDisplay() {
   const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(null);
 
   const totalStoredPallets = Object.values(state.pallets).reduce((sum, p) => sum + p.quantity, 0);
-  const warehouseUsage = (totalStoredPallets / state.warehouseCapacity) * 100;
-  const isFull = totalStoredPallets >= state.warehouseCapacity;
+  const totalRawMaterialUnits = Object.values(state.rawMaterials).reduce((sum, m) => sum + (m?.quantity || 0), 0);
+  const rawMaterialSpaceUsed = totalRawMaterialUnits / RAW_MATERIAL_UNITS_PER_PALLET_SPACE;
+  const totalSpaceUsed = totalStoredPallets + rawMaterialSpaceUsed;
+  const warehouseUsage = (totalSpaceUsed / state.warehouseCapacity) * 100;
+  const isFull = totalSpaceUsed >= state.warehouseCapacity;
+
   
   const handlePalletSelectionChange = (productName: string, quantity: number) => {
     const availableQuantity = state.pallets[productName]?.quantity || 0;
@@ -85,13 +89,13 @@ export default function WarehouseDisplay() {
         </CardTitle>
         <div className="flex justify-between items-center pt-2">
             <span className="font-medium text-sm">Storage Capacity</span>
-            <span className="text-muted-foreground text-sm">{totalStoredPallets.toLocaleString()} / {state.warehouseCapacity.toLocaleString()} Pallets</span>
+            <span className="text-muted-foreground text-sm">{Math.ceil(totalSpaceUsed).toLocaleString()} / {state.warehouseCapacity.toLocaleString()} Pallet Spaces</span>
         </div>
         <Progress value={warehouseUsage} className="transition-all duration-500 ease-out h-2" />
         {isFull && (
           <div className="flex items-center pt-2 text-destructive text-xs">
             <AlertCircle className="w-4 h-4 mr-1" />
-            <p className="font-medium">Warehouse full! Production may be blocked.</p>
+            <p className="font-medium">Warehouse full! Production & deliveries will be blocked.</p>
           </div>
         )}
       </CardHeader>

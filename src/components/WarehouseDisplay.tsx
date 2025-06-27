@@ -160,19 +160,22 @@ export default function WarehouseDisplay() {
               <div className="space-y-2">
                 <Label>2. Select Vehicle</Label>
                 <RadioGroup value={selectedVehicleId || ''} onValueChange={setSelectedVehicleId} className="rounded-md border p-2 space-y-1">
-                  {Object.values(state.vehicles).map(vehicle => (
-                    <Label key={vehicle.id} htmlFor={vehicle.id} className="flex items-center justify-between p-2 rounded-md hover:bg-secondary/50 cursor-pointer text-sm">
-                      <div className="flex items-center gap-2">
-                        <RadioGroupItem value={vehicle.id} id={vehicle.id} />
-                        <vehicle.icon className="w-4 h-4" />
-                        {vehicle.name}
-                      </div>
-                      <div className="text-xs text-muted-foreground text-right">
-                        <p>Cap: {vehicle.capacity}</p>
-                        <p>Time: {vehicle.timePerPallet}s/pallet</p>
-                      </div>
-                    </Label>
-                  ))}
+                  {Object.values(state.vehicles).map(vehicle => {
+                    const VehicleIcon = vehicle.icon;
+                    return (
+                      <Label key={vehicle.id} htmlFor={vehicle.id} className="flex items-center justify-between p-2 rounded-md hover:bg-secondary/50 cursor-pointer text-sm">
+                        <div className="flex items-center gap-2">
+                          <RadioGroupItem value={vehicle.id} id={vehicle.id} />
+                          <VehicleIcon className="w-4 h-4" />
+                          {vehicle.name}
+                        </div>
+                        <div className="text-xs text-muted-foreground text-right">
+                          <p>Cap: {vehicle.capacity}</p>
+                          <p>Time: {vehicle.timePerPallet}s/pallet</p>
+                        </div>
+                      </Label>
+                    );
+                  })}
                 </RadioGroup>
               </div>
             </div>

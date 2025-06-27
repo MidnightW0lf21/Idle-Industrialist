@@ -1,14 +1,14 @@
 "use client";
 
 import React, { createContext, useContext, useReducer, useEffect, ReactNode } from 'react';
-import type { GameState, GameAction, Order, ProductionLine, Upgrade, StoredPallet } from '@/types';
+import type { GameState, GameAction, Order, ProductionLine, Upgrade, StoredPallet, Worker } from '@/types';
 import { generateNewOrder } from '@/ai/flows/order-generation-flow';
 
 const initialOrders: Order[] = [
-  { id: 1, productName: "1k Ohm Resistors", quantity: 100, reward: 1500, timeToProduce: 3000 },
-  { id: 2, productName: "10uF Ceramic Capacitors", quantity: 50, reward: 2500, timeToProduce: 2250 },
-  { id: 3, productName: "5mm Red LEDs", quantity: 75, reward: 1000, timeToProduce: 1500 },
-  { id: 4, productName: "ATmega328P Microcontrollers", quantity: 10, reward: 5000, timeToProduce: 1200 },
+  { id: 1, productName: "1k Ohm Resistors", quantity: 100, reward: 1500, timeToProduce: 6000 },
+  { id: 2, productName: "10uF Ceramic Capacitors", quantity: 50, reward: 2500, timeToProduce: 4500 },
+  { id: 3, productName: "5mm Red LEDs", quantity: 75, reward: 1000, timeToProduce: 3000 },
+  { id: 4, productName: "ATmega328P Microcontrollers", quantity: 10, reward: 5000, timeToProduce: 2400 },
 ];
 
 const initialUpgrades: Record<string, Upgrade> = {
@@ -17,17 +17,26 @@ const initialUpgrades: Record<string, Upgrade> = {
   'warehouse_1': { id: 'warehouse_1', name: "Warehouse Expansion", description: "Increase warehouse capacity by 100 pallets.", level: 1, cost: 750 },
 };
 
+const initialWorkers: Worker[] = [
+    { id: 1, name: "Alice", wage: 1, assignedLineId: 1 },
+    { id: 2, name: "Bob", wage: 1, assignedLineId: null },
+];
+
 const NEW_ORDER_INTERVAL = 30000; // 30 seconds
+const WORKER_HIRE_COST = 500;
+const POSSIBLE_WORKER_NAMES = ["Charlie", "Dana", "Eli", "Frankie", "Gabi", "Harper", "Izzy", "Jordan", "Kai", "Leo"];
+
 
 const initialState: GameState = {
   money: 500,
   pallets: {},
   warehouseCapacity: 100,
-  productionLines: [{ id: 1, orderId: null, productName: null, progress: 0, timeToProduce: 0, efficiency: 1, quantity: 0, reward: 0, completedQuantity: 0 }],
+  productionLines: [{ id: 1, orderId: null, productName: null, progress: 0, timeToProduce: 0, efficiency: 1, quantity: 0, reward: 0, completedQuantity: 0, assignedWorkerId: 1 }],
   availableOrders: initialOrders,
   productionQueue: [],
   upgrades: initialUpgrades,
   lastOrderTimestamp: Date.now(),
+  workers: initialWorkers,
 };
 
 const gameReducer = (state: GameState, action: GameAction): GameState => {
@@ -36,9 +45,14 @@ const gameReducer = (state: GameState, action: GameAction): GameState => {
       let newState = { ...state };
       let palletsInWarehouse = Object.values(newState.pallets).reduce((sum, p) => sum + p.quantity, 0);
 
+      // Deduct wages
+      const totalWage = newState.workers.reduce((sum, worker) => sum + worker.wage, 0);
+      newState.money -= totalWage;
+
       // Production Logic
       newState.productionLines = newState.productionLines.map(line => {
-        if (line.orderId === null) {
+        // Line must have an order AND a worker to run
+        if (line.orderId === null || line.assignedWorkerId === null) {
           return line;
         }
 
@@ -75,7 +89,7 @@ const gameReducer = (state: GameState, action: GameAction): GameState => {
         
         if (updatedLine.progress >= 100 && updatedLine.completedQuantity >= line.quantity) {
           // Reset the line, keeping its ID and efficiency
-          return { id: line.id, efficiency: line.efficiency, orderId: null, productName: null, progress: 0, timeToProduce: 0, quantity: 0, reward: 0, completedQuantity: 0 };
+          return { ...line, orderId: null, productName: null, progress: 0, timeToProduce: 0, quantity: 0, reward: 0, completedQuantity: 0 };
         }
 
         return updatedLine;
@@ -149,7 +163,7 @@ const gameReducer = (state: GameState, action: GameAction): GameState => {
           break;
         case 'add_line_1':
           const newLineId = newState.productionLines.length + 1;
-          newState.productionLines.push({ id: newLineId, orderId: null, productName: null, progress: 0, timeToProduce: 0, efficiency: 1, quantity: 0, reward: 0, completedQuantity: 0 });
+          newState.productionLines.push({ id: newLineId, orderId: null, productName: null, progress: 0, timeToProduce: 0, efficiency: 1, quantity: 0, reward: 0, completedQuantity: 0, assignedWorkerId: null });
           break;
         case 'warehouse_1':
           newState.warehouseCapacity += 100;
@@ -165,6 +179,64 @@ const gameReducer = (state: GameState, action: GameAction): GameState => {
         availableOrders: [...state.availableOrders, action.order]
       }
     }
+
+    case 'HIRE_WORKER': {
+      if (state.money < WORKER_HIRE_COST) return state;
+      
+      const existingNames = new Set(state.workers.map(w => w.name));
+      const availableNames = POSSIBLE_WORKER_NAMES.filter(n => !existingNames.has(n));
+      if (availableNames.length === 0) return state; // No more unique names
+
+      const newWorker: Worker = {
+        id: (Math.max(...state.workers.map(w => w.id), 0) || 0) + 1,
+        name: availableNames[Math.floor(Math.random() * availableNames.length)],
+        wage: 1.5,
+        assignedLineId: null,
+      };
+
+      return {
+        ...state,
+        money: state.money - WORKER_HIRE_COST,
+        workers: [...state.workers, newWorker],
+      };
+    }
+
+    case 'ASSIGN_WORKER': {
+      const { workerId, lineId } = action;
+      
+      const workerToAssign = state.workers.find(w => w.id === workerId);
+      if (!workerToAssign) return state;
+
+      const newWorkers = state.workers.map(w => ({ ...w }));
+      const newLines = state.productionLines.map(l => ({ ...l }));
+      
+      const targetWorker = newWorkers.find(w => w.id === workerId)!;
+      const oldLineId = targetWorker.assignedLineId;
+
+      // 1. Unassign from old line
+      if (oldLineId !== null) {
+        const oldLine = newLines.find(l => l.id === oldLineId);
+        if (oldLine) oldLine.assignedWorkerId = null;
+      }
+
+      // 2. Assign to new line (if one was selected)
+      if (lineId !== null) {
+        const newLine = newLines.find(l => l.id === lineId);
+        if (newLine && newLine.assignedWorkerId === null) {
+          newLine.assignedWorkerId = workerId;
+          targetWorker.assignedLineId = lineId;
+        } else {
+          // New line is already taken, revert worker to idle
+           targetWorker.assignedLineId = null;
+        }
+      } else {
+        // This was an unassign action, set worker to idle
+        targetWorker.assignedLineId = null;
+      }
+      
+      return { ...state, workers: newWorkers, productionLines: newLines };
+    }
+
 
     default:
       return state;

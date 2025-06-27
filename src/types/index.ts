@@ -6,6 +6,13 @@ export interface Order {
   timeToProduce: number; // in ticks
 }
 
+export interface Worker {
+  id: number;
+  name: string;
+  wage: number; // dollars per second
+  assignedLineId: number | null;
+}
+
 export interface ProductionLine {
   id: number;
   orderId: number | null;
@@ -16,6 +23,7 @@ export interface ProductionLine {
   quantity: number;
   reward: number;
   completedQuantity: number;
+  assignedWorkerId: number | null;
 }
 
 export interface Upgrade {
@@ -40,6 +48,7 @@ export interface GameState {
   productionQueue: Order[];
   upgrades: Record<string, Upgrade>;
   lastOrderTimestamp: number;
+  workers: Worker[];
 }
 
 export type GameAction =
@@ -47,4 +56,6 @@ export type GameAction =
   | { type: 'ACCEPT_ORDER'; order: Order }
   | { type: 'PURCHASE_UPGRADE'; upgradeId: string }
   | { type: 'SHIP_GOODS' }
-  | { type: 'ADD_ORDER', order: Order };
+  | { type: 'ADD_ORDER', order: Order }
+  | { type: 'HIRE_WORKER' }
+  | { type: 'ASSIGN_WORKER'; workerId: number; lineId: number | null };

@@ -1,15 +1,19 @@
 "use client";
 
 import type { ProductionLine } from '@/types';
+import { useGameState } from '@/contexts/GameStateContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { Cog, Clock, Package } from 'lucide-react';
+import { Cog, Clock, Package, User } from 'lucide-react';
 
 interface ProductionLineCardProps {
   line: ProductionLine;
 }
 
 export default function ProductionLineCard({ line }: ProductionLineCardProps) {
+  const { state } = useGameState();
+  const worker = state.workers.find(w => w.id === line.assignedWorkerId);
+
   // Time remaining calculation needs to account for efficiency
   const timeRemaining = line.orderId ? (line.timeToProduce / line.efficiency) * (1 - (line.progress / 100)) : 0;
   
@@ -24,10 +28,16 @@ export default function ProductionLineCard({ line }: ProductionLineCardProps) {
     <Card className="bg-secondary/50">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Cog className={`w-5 h-5 ${line.orderId ? 'animate-spin' : ''}`} style={{ animationDuration: '5s' }}/>
+          <Cog className={`w-5 h-5 ${line.orderId && line.assignedWorkerId ? 'animate-spin' : ''}`} style={{ animationDuration: '5s' }}/>
           Production Line {line.id}
         </CardTitle>
-        <CardDescription>Efficiency: {Math.round(line.efficiency * 100)}%</CardDescription>
+        <CardDescription className="flex justify-between items-center">
+          <span>Efficiency: {Math.round(line.efficiency * 100)}%</span>
+           <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <User className="w-3 h-3"/>
+              {worker ? worker.name : 'Unassigned'}
+            </span>
+        </CardDescription>
       </CardHeader>
       <CardContent>
         {line.orderId && line.productName ? (
@@ -47,7 +57,7 @@ export default function ProductionLineCard({ line }: ProductionLineCardProps) {
           </div>
         ) : (
           <div className="text-center text-muted-foreground py-4">
-            <p>Idle</p>
+            <p>{line.assignedWorkerId ? "Idle" : "Awaiting Worker"}</p>
           </div>
         )}
       </CardContent>

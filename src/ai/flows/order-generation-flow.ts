@@ -28,7 +28,18 @@ const NewOrderOutputSchema = z.object({
   quantity: z.number().int().min(5).max(500).describe("The number of units to produce. Should be balanced based on player's capacity."),
   reward: z.number().int().min(100).describe("The total monetary reward for completing the order. Should be proportional to quantity and time."),
   timeToProduce: z.number().int().min(1).describe("The time in seconds required to produce the entire order. Production should be slow, around 30 to 120 seconds per unit (pallet). Calculate the total time based on the quantity."),
-  materialRequirements: z.record(z.string(), z.number().int().min(1)).describe("A map of raw materials required to produce ONE pallet. Keys are material names, values are quantities. Choose 1 to 3 materials from this list: Resistors, Capacitors, Transistors, LEDs, PCBs, Integrated Circuits."),
+  materialRequirements: z.object({
+    'Resistors': z.number().int().min(1).optional(),
+    'Capacitors': z.number().int().min(1).optional(),
+    'Transistors': z.number().int().min(1).optional(),
+    'LEDs': z.number().int().min(1).optional(),
+    'PCBs': z.number().int().min(1).optional(),
+    'Integrated Circuits': z.number().int().min(1).optional(),
+    'Diodes': z.number().int().min(1).optional(),
+    'Inductors': z.number().int().min(1).optional(),
+    'Quartz Crystals': z.number().int().min(1).optional(),
+    'Switches': z.number().int().min(1).optional(),
+  }).describe("An object listing the raw materials required to produce ONE pallet. Only include keys for materials that are actually required. Choose 1 to 3 materials. The quantities for each material per pallet should be substantial, ranging from 25 to 100 units."),
 });
 
 

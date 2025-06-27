@@ -56,20 +56,18 @@ export default function ProductionLineCard({ line }: ProductionLineCardProps) {
   return (
     <Card className="bg-secondary/50 flex flex-col">
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Cog className={`w-5 h-5 ${line.orderId && line.assignedWorkerId ? 'animate-spin' : ''}`} style={{ animationDuration: `${Math.max(0.5, 5 / effectiveEfficiency)}s` }}/>
-          Production Line {line.id}
-        </CardTitle>
-        <CardDescription className="flex justify-between items-center">
-          <span>Base Efficiency: {Math.round(line.efficiency * 100)}%</span>
-           <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+        <CardTitle className="flex items-center justify-between">
+          <span className="flex items-center gap-2">
+            <Cog className={`w-5 h-5 ${line.orderId && line.assignedWorkerId ? 'animate-spin' : ''}`} style={{ animationDuration: `${Math.max(0.5, 5 / effectiveEfficiency)}s` }}/>
+            Production Line {line.id}
+          </span>
+           <span className="flex items-center gap-1.5 text-sm font-normal text-muted-foreground">
               <User className="w-3 h-3"/>
-              {worker ? `${worker.name} (+${Math.round((worker.efficiency-1)*100)}%)` : 'Unassigned'}
+              {worker ? worker.name : 'Unassigned'}
             </span>
-        </CardDescription>
-         <p className="text-sm font-semibold">Total Efficiency: {Math.round(effectiveEfficiency * 100)}%</p>
+        </CardTitle>
       </CardHeader>
-      <CardContent className="flex-grow">
+      <CardContent className="flex-grow pt-4">
         {line.orderId && line.productName ? (
           <div className="space-y-2">
             <p className="font-semibold truncate" title={line.productName}>{line.productName}</p>

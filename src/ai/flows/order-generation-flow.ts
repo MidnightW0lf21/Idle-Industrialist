@@ -39,6 +39,7 @@ const prompt = ai.definePrompt({
   name: 'generateOrderPrompt',
   input: { schema: GenerateOrderInputSchema },
   output: { schema: NewOrderOutputSchema },
+  model: 'googleai/gemini-2.0-flash',
   prompt: `You are a logistics AI for an electronics factory simulation game. Your task is to generate a new, balanced order for the player. The products are real-life electronic components.
 
   Analyze the player's current situation:
@@ -62,11 +63,7 @@ const generateOrderFlow = ai.defineFlow(
     outputSchema: NewOrderOutputSchema,
   },
   async (input) => {
-    const { output } = await ai.generate({
-      prompt,
-      model: 'googleai/gemini-2.0-flash',
-      input,
-    });
+    const { output } = await prompt(input);
     return output!;
   }
 );

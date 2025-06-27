@@ -19,7 +19,8 @@ const GenerateOrderInputSchema = z.object({
   playerMoney: z.number().describe("The player's current amount of money."),
   productionCapacity: z.number().describe("The number of production lines the player has."),
   warehouseUsage: z.number().describe("The current percentage of warehouse capacity being used (0-100)."),
-  certificationLevel: z.number().int().min(1).describe("The player's certification level. Higher levels unlock more complex and profitable orders. Level 1: Very simple orders. Level 2: Basic orders. Level 3: Intermediate orders. Level 4: Advanced orders. Level 5: Expert-level, highly complex orders.")
+  certificationLevel: z.number().int().min(1).describe("The player's certification level. Higher levels unlock more complex and profitable orders. Level 1: Very simple orders. Level 2: Basic orders. Level 3: Intermediate orders. Level 4: Advanced orders. Level 5: Expert-level, highly complex orders."),
+  reputation: z.number().int().min(0).describe("The player's reputation score. Higher reputation unlocks special, high-value contracts.")
 });
 export type GenerateOrderInput = z.infer<typeof GenerateOrderInputSchema>;
 
@@ -41,6 +42,8 @@ const NewOrderOutputSchema = z.object({
     'Quartz Crystals': z.number().int().min(1).optional(),
     'Switches': z.number().int().min(1).optional(),
   }).describe("An object listing the raw materials required to produce ONE pallet. Only include keys for materials that are actually required. Choose 1 to 3 materials. The quantities for each material per pallet should be substantial, ranging from 25 to 100 units."),
+  isContract: z.boolean().optional().describe("Set to true if this is a special, high-value contract."),
+  reputationReward: z.number().int().min(0).optional().describe("The amount of reputation awarded for completing the contract. Only include if isContract is true."),
 });
 
 
@@ -60,6 +63,7 @@ const prompt = ai.definePrompt({
   - Production Lines: {{productionCapacity}}
   - Warehouse Usage: {{warehouseUsage}}%
   - Certification Level: {{certificationLevel}}
+  - Reputation: {{reputation}}
 
   Based on this, create a new order that is challenging but achievable.
   - The Certification Level is the MOST IMPORTANT factor for difficulty.
@@ -68,6 +72,11 @@ const prompt = ai.definePrompt({
   - Level 3: Intermediate order. Larger quantity (50-150), significant reward, and 2 more complex materials.
   - Level 4: Advanced order. Large quantity (150-300), high reward, and 2-3 materials, including more expensive ones like PCBs or ICs.
   - Level 5: Expert order. Very large quantity (300-500), massive reward, and 3 complex materials with high requirements per pallet.
+
+  **Contracts:**
+  - If the player's Certification Level is 3 or higher AND their reputation is above 50, you have a chance (around 20%) to generate a special **Contract** instead of a regular order.
+  - Contracts are larger and more valuable than regular orders for the same certification level. They should feel like a big deal.
+  - If you generate a Contract, set \`isContract: true\` and provide a \`reputationReward\` between 5 and 20 points, proportional to the contract's difficulty. Otherwise, omit these fields.
   
   General rules:
   - If warehouse usage is high, create smaller orders for the given certification level.

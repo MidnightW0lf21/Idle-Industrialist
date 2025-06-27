@@ -7,6 +7,8 @@ export interface Order {
   reward: number;
   timeToProduce: number; // in ticks
   materialRequirements: Record<string, number>;
+  isContract?: boolean;
+  reputationReward?: number;
 }
 
 export interface Worker {
@@ -94,12 +96,14 @@ export interface GameState {
   productionLines: ProductionLine[];
   availableOrders: Order[];
   productionQueue: Order[];
+  activeOrders: Order[];
   upgrades: Record<string, Upgrade>;
   workers: Worker[];
   vehicles: Record<string, Vehicle>;
   activeShipments: Shipment[];
   invoices: Invoice[];
   certificationLevel: number;
+  reputation: number;
   achievements: Record<string, Achievement>;
   totalPalletsShipped: number;
 }

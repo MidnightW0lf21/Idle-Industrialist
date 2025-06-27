@@ -78,6 +78,7 @@ const initialState: GameState = {
   productionLines: [{ id: 1, orderId: null, productName: null, progress: 0, timeToProduce: 0, efficiency: 1, efficiencyLevel: 1, quantity: 0, reward: 0, completedQuantity: 0, assignedWorkerId: null, materialRequirements: null, isBlockedByMaterials: false }],
   availableOrders: [],
   productionQueue: [],
+  activeOrders: [],
   upgrades: initialUpgrades,
   workers: initialWorkers,
   vehicles: {
@@ -86,6 +87,7 @@ const initialState: GameState = {
   activeShipments: [],
   invoices: [],
   certificationLevel: 1,
+  reputation: 0,
   achievements: initialAchievements,
   totalPalletsShipped: 0,
 };
@@ -220,6 +222,13 @@ const gameReducer = (state: GameState, action: GameAction): GameState => {
         }
         
         if (currentLine.progress >= 100 && currentLine.completedQuantity >= currentLine.quantity) {
+           const completedOrder = newState.activeOrders.find(o => o.id === currentLine.orderId);
+            if (completedOrder) {
+                if (completedOrder.isContract && completedOrder.reputationReward) {
+                    newState.reputation = (newState.reputation || 0) + completedOrder.reputationReward;
+                }
+                newState.activeOrders = newState.activeOrders.filter(o => o.id !== currentLine.orderId);
+            }
           return { ...currentLine, orderId: null, productName: null, progress: 0, timeToProduce: 0, quantity: 0, reward: 0, completedQuantity: 0, isBlockedByMaterials: false, materialRequirements: null };
         }
 
@@ -243,6 +252,7 @@ const gameReducer = (state: GameState, action: GameAction): GameState => {
                 materialRequirements: nextOrder.materialRequirements,
             };
             newState.productionQueue = newState.productionQueue.slice(1);
+            newState.activeOrders.push(nextOrder);
         }
       }
 
@@ -634,6 +644,7 @@ export const GameStateProvider = ({ children }: { children: ReactNode }) => {
   const stateRef = useRef(state);
   stateRef.current = state;
   const prevAchievementsRef = useRef(state.achievements);
+  const prevReputationRef = useRef(state.reputation);
 
   // Game Loop
   useEffect(() => {
@@ -681,13 +692,25 @@ export const GameStateProvider = ({ children }: { children: ReactNode }) => {
     prevAchievementsRef.current = currentAchievements;
   }, [state.achievements, toast]);
 
+  // Effect to watch for reputation changes and show toast
+  useEffect(() => {
+    if (state.reputation > prevReputationRef.current) {
+      const gained = state.reputation - prevReputationRef.current;
+      toast({
+        title: "Reputation Increased!",
+        description: `You gained +${gained} reputation.`,
+      });
+    }
+    prevReputationRef.current = state.reputation;
+  }, [state.reputation, toast]);
+
 
   // Effect for AI order generation
   useEffect(() => {
     let isMounted = true;
     const generate = async () => {
       // Use the ref to get the latest state without adding them as dependencies
-      const { money, productionLines, warehouseCapacity, availableOrders, pallets, rawMaterials, certificationLevel } = stateRef.current;
+      const { money, productionLines, warehouseCapacity, availableOrders, pallets, rawMaterials, certificationLevel, reputation } = stateRef.current;
       
       if (availableOrders.length >= 6 || !isMounted) return;
 
@@ -702,6 +725,7 @@ export const GameStateProvider = ({ children }: { children: ReactNode }) => {
           productionCapacity: productionLines.length,
           warehouseUsage: isNaN(warehouseUsage) ? 0 : warehouseUsage,
           certificationLevel: certificationLevel,
+          reputation: reputation,
       };
       
       try {
@@ -711,6 +735,7 @@ export const GameStateProvider = ({ children }: { children: ReactNode }) => {
         const allOrderIds = [
             ...stateRef.current.availableOrders.map(o => o.id),
             ...stateRef.current.productionQueue.map(o => o.id),
+            ...stateRef.current.activeOrders.map(o => o.id),
             ...stateRef.current.productionLines.map(l => l.orderId).filter((id): id is number => id !== null)
         ];
         const newId = (Math.max(0, ...allOrderIds)) + 1;

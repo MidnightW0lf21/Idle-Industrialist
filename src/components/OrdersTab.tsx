@@ -6,9 +6,10 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
-import { Package, DollarSign, Clock, ChevronsRight, Loader2, Wrench } from 'lucide-react';
+import { Package, DollarSign, Clock, ChevronsRight, Loader2, Wrench, Star } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { cn } from '@/lib/utils';
 
 const QUEUE_CAP = 10;
 
@@ -41,14 +42,34 @@ export default function OrdersTab() {
         <ScrollArea className="h-64 pr-4">
           <div className="space-y-4">
             {state.availableOrders.length > 0 ? state.availableOrders.map(order => (
-              <Card key={order.id} className="bg-secondary/30">
+              <Card key={order.id} className={cn("bg-secondary/30", order.isContract && "border-accent/50 ring-2 ring-accent/20")}>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-base">{order.productName}</CardTitle>
+                  <CardTitle className="text-base flex justify-between items-center">
+                    <span>{order.productName}</span>
+                     {order.isContract && (
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger>
+                            <div className="flex items-center gap-1.5 text-xs font-bold text-accent">
+                              <Star className="w-4 h-4"/>
+                              <span>CONTRACT</span>
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>High value contract. Grants reputation.</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    )}
+                  </CardTitle>
                 </CardHeader>
                 <CardContent className="text-sm text-muted-foreground grid grid-cols-2 gap-x-4 gap-y-1">
                   <div className="flex items-center gap-1.5"><Package className="w-4 h-4"/>Quantity: {order.quantity}</div>
-                  <div className="flex items-center gap-1.5"><DollarSign className="w-4 h-4"/>Reward: ${order.reward}</div>
+                  <div className="flex items-center gap-1.5"><DollarSign className="w-4 h-4"/>Reward: ${order.reward.toLocaleString()}</div>
                   <div className="flex items-center gap-1.5"><Clock className="w-4 h-4"/>Time: {order.timeToProduce}s</div>
+                  {order.reputationReward && (
+                    <div className="flex items-center gap-1.5"><Star className="w-4 h-4 text-yellow-400"/>Reputation: +{order.reputationReward}</div>
+                  )}
                   <div className="flex items-center gap-1.5 col-span-2"><Wrench className="w-4 h-4"/>Materials / Pallet:</div>
                   <ul className="list-disc list-inside text-xs pl-6 col-span-2 -mt-1">
                     {Object.entries(order.materialRequirements).map(([mat, qty]) => (

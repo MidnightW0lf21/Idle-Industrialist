@@ -7,9 +7,18 @@ import { Truck, MoveHorizontal, Car } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast"
 
 const initialOrders: Order[] = [
-  { id: 1, productName: "1k Ohm Resistors", quantity: 100, reward: 1500, timeToProduce: 6000 },
-  { id: 2, productName: "10uF Ceramic Capacitors", quantity: 50, reward: 2500, timeToProduce: 4500 },
+  { id: 1, productName: "1k Ohm Resistors", quantity: 100, reward: 1500, timeToProduce: 6000, materialRequirements: { 'Resistors': 10 } },
+  { id: 2, productName: "10uF Ceramic Capacitors", quantity: 50, reward: 2500, timeToProduce: 4500, materialRequirements: { 'Capacitors': 5, 'PCBs': 1 } },
 ];
+
+export const AVAILABLE_RAW_MATERIALS: Record<string, { costPerUnit: number, timePerUnit: number }> = {
+  'Resistors': { costPerUnit: 0.1, timePerUnit: 0.1 },
+  'Capacitors': { costPerUnit: 0.2, timePerUnit: 0.15 },
+  'Transistors': { costPerUnit: 0.5, timePerUnit: 0.2 },
+  'LEDs': { costPerUnit: 0.3, timePerUnit: 0.1 },
+  'PCBs': { costPerUnit: 2, timePerUnit: 1 },
+  'Integrated Circuits': { costPerUnit: 5, timePerUnit: 2 },
+};
 
 const ALL_VEHICLES: Record<string, Vehicle> = {
   wheelbarrow: { id: 'wheelbarrow', name: 'Wheelbarrow', capacity: 2, timePerPallet: 60, icon: MoveHorizontal },
@@ -44,15 +53,18 @@ const LINE_EFFICIENCY_UPGRADE_BASE_COST = 400;
 const LINE_EFFICIENCY_CAP = 5;
 const MAX_PRODUCTION_LINES = 12;
 const MAX_WAREHOUSE_CAPACITY = 1500;
-const MATERIALS_PER_PALLET = 2;
 
 
 const initialState: GameState = {
   money: 500,
   pallets: {},
-  rawMaterials: { "Electronic Components": { quantity: 50 } },
+  rawMaterials: { 
+    'Resistors': { quantity: 100 },
+    'Capacitors': { quantity: 50 },
+    'PCBs': { quantity: 10 },
+  },
   warehouseCapacity: 20,
-  productionLines: [{ id: 1, orderId: null, productName: null, progress: 0, timeToProduce: 0, efficiency: 1, efficiencyLevel: 1, quantity: 0, reward: 0, completedQuantity: 0, assignedWorkerId: null }],
+  productionLines: [{ id: 1, orderId: null, productName: null, progress: 0, timeToProduce: 0, efficiency: 1, efficiencyLevel: 1, quantity: 0, reward: 0, completedQuantity: 0, assignedWorkerId: null, materialRequirements: null }],
   availableOrders: initialOrders,
   productionQueue: [],
   upgrades: initialUpgrades,
@@ -68,33 +80,17 @@ const initialState: GameState = {
 const gameReducer = (state: GameState, action: GameAction): GameState => {
   switch (action.type) {
     case 'TICK': {
-      // Create a deep-enough copy of state to avoid mutation bugs.
-      const newPallets = { ...state.pallets };
-      for (const key in newPallets) {
-        newPallets[key] = { ...newPallets[key] };
-      }
-
-      let newState = {
-        ...state,
-        pallets: newPallets,
-        rawMaterials: { ...state.rawMaterials, "Electronic Components": { ...state.rawMaterials["Electronic Components"] } },
-        workers: state.workers.map(w => ({...w})),
-        productionLines: state.productionLines.map(l => ({...l})),
-        activeShipments: state.activeShipments.map(s => ({...s})),
-        invoices: state.invoices.map(i => ({...i}))
-      };
-
+      const now = Date.now();
+      let newState = JSON.parse(JSON.stringify(state)); // Deep copy for mutation safety
+      
       let palletsInWarehouse = Object.values(newState.pallets).reduce((sum, p) => sum + p.quantity, 0);
 
       // --- Handle Completed Shipments ---
-      const now = Date.now();
       const completedShipments = newState.activeShipments.filter(s => now >= s.arrivalTime);
-      
       if (completedShipments.length > 0) {
         const totalEarnings = completedShipments.reduce((sum, s) => sum + s.totalValue, 0);
         newState.money += totalEarnings;
         newState.activeShipments = newState.activeShipments.filter(s => now < s.arrivalTime);
-        // Toast notification is handled in the component via useEffect
       }
 
       // --- Handle Delivered Invoices ---
@@ -107,14 +103,12 @@ const gameReducer = (state: GameState, action: GameAction): GameState => {
         newState.invoices = newState.invoices.filter(i => !(i.status === 'paid' && now >= i.deliveryArrivalTime!));
       }
 
-
-      // Deduct wages only for assigned workers
+      // --- Wages & Worker Energy ---
       const totalWage = newState.workers
         .filter(worker => worker.assignedLineId !== null)
         .reduce((sum, worker) => sum + worker.wage, 0);
       newState.money -= totalWage;
 
-      // Worker energy logic
       const exhaustedWorkerIds = new Set<number>();
       newState.workers = newState.workers.map(worker => {
           if (worker.assignedLineId !== null) {
@@ -131,9 +125,9 @@ const gameReducer = (state: GameState, action: GameAction): GameState => {
           }
       });
       
-      // Production Logic
+      // --- Production Logic ---
       newState.productionLines = newState.productionLines.map(line => {
-        let currentLine = {...line, isBlockedByMaterials: false}; // Reset block status
+        let currentLine = {...line, isBlockedByMaterials: false};
         if (currentLine.assignedWorkerId && exhaustedWorkerIds.has(currentLine.assignedWorkerId)) {
             currentLine.assignedWorkerId = null;
         }
@@ -145,17 +139,21 @@ const gameReducer = (state: GameState, action: GameAction): GameState => {
         const worker = newState.workers.find(w => w.id === currentLine.assignedWorkerId);
         if (!worker) return currentLine;
 
-        // Check for materials
-        if ((newState.rawMaterials['Electronic Components']?.quantity || 0) < MATERIALS_PER_PALLET) {
-          currentLine.isBlockedByMaterials = true;
-          return currentLine;
-        }
-
         const spaceAvailable = newState.warehouseCapacity - palletsInWarehouse;
         if (spaceAvailable <= 0) {
           return currentLine;
         }
+        
+        // Check if there are enough materials for at least one pallet
+        const hasMaterialsForOne = Object.entries(currentLine.materialRequirements ?? {}).every(
+          ([material, needed]) => (newState.rawMaterials[material]?.quantity ?? 0) >= needed
+        );
 
+        if (!hasMaterialsForOne) {
+          currentLine.isBlockedByMaterials = true;
+          return currentLine;
+        }
+        
         const effectiveEfficiency = currentLine.efficiency * worker.efficiency;
         const progressIncrease = (100 / currentLine.timeToProduce) * effectiveEfficiency;
         const newProgress = Math.min(100, currentLine.progress + progressIncrease);
@@ -166,17 +164,18 @@ const gameReducer = (state: GameState, action: GameAction): GameState => {
         currentLine.progress = newProgress;
 
         if (newlyProduced > 0) {
-          const materialsNeeded = newlyProduced * MATERIALS_PER_PALLET;
-          const materialsAvailable = newState.rawMaterials['Electronic Components']?.quantity || 0;
-          
-          const canProduceNum = Math.floor(materialsAvailable / MATERIALS_PER_PALLET);
-          const actualProductionAmount = Math.min(newlyProduced, canProduceNum);
-          
-          const palletsToAdd = Math.min(actualProductionAmount, spaceAvailable);
+          let maxPalletsFromMaterials = Infinity;
+          for (const [material, neededPerPallet] of Object.entries(currentLine.materialRequirements ?? {})) {
+            const available = newState.rawMaterials[material]?.quantity || 0;
+            maxPalletsFromMaterials = Math.min(maxPalletsFromMaterials, Math.floor(available / neededPerPallet));
+          }
+
+          const palletsToAdd = Math.min(newlyProduced, maxPalletsFromMaterials, spaceAvailable);
           
           if (palletsToAdd > 0) {
-            const materialsToConsume = palletsToAdd * MATERIALS_PER_PALLET;
-            newState.rawMaterials['Electronic Components'].quantity -= materialsToConsume;
+             for (const [material, neededPerPallet] of Object.entries(currentLine.materialRequirements ?? {})) {
+                newState.rawMaterials[material].quantity -= palletsToAdd * neededPerPallet;
+            }
 
             const productName = currentLine.productName!;
             const valuePerPallet = currentLine.reward / currentLine.quantity;
@@ -193,7 +192,7 @@ const gameReducer = (state: GameState, action: GameAction): GameState => {
         }
         
         if (currentLine.progress >= 100 && currentLine.completedQuantity >= currentLine.quantity) {
-          return { ...currentLine, orderId: null, productName: null, progress: 0, timeToProduce: 0, quantity: 0, reward: 0, completedQuantity: 0, isBlockedByMaterials: false };
+          return { ...currentLine, orderId: null, productName: null, progress: 0, timeToProduce: 0, quantity: 0, reward: 0, completedQuantity: 0, isBlockedByMaterials: false, materialRequirements: null };
         }
 
         return currentLine;
@@ -214,6 +213,7 @@ const gameReducer = (state: GameState, action: GameAction): GameState => {
                 reward: nextOrder.reward,
                 progress: 0,
                 completedQuantity: 0,
+                materialRequirements: nextOrder.materialRequirements,
             };
             newState.productionQueue = newState.productionQueue.slice(1);
         }
@@ -264,7 +264,6 @@ const gameReducer = (state: GameState, action: GameAction): GameState => {
       }
 
       if (totalQuantity === 0 || totalQuantity > vehicle.capacity) {
-        // Nothing to ship or exceeding capacity, do nothing
         return state;
       }
       
@@ -299,7 +298,7 @@ const gameReducer = (state: GameState, action: GameAction): GameState => {
         case 'add_line': {
           if (newState.productionLines.length >= MAX_PRODUCTION_LINES) return state;
           const newLineId = newState.productionLines.length + 1;
-          newState.productionLines.push({ id: newLineId, orderId: null, productName: null, progress: 0, timeToProduce: 0, efficiency: 1, efficiencyLevel: 1, quantity: 0, reward: 0, completedQuantity: 0, assignedWorkerId: null });
+          newState.productionLines.push({ id: newLineId, orderId: null, productName: null, progress: 0, timeToProduce: 0, efficiency: 1, efficiencyLevel: 1, quantity: 0, reward: 0, completedQuantity: 0, assignedWorkerId: null, materialRequirements: null });
           
           if (newState.productionLines.length >= MAX_PRODUCTION_LINES) {
             delete newUpgrades['add_line'];
@@ -492,14 +491,20 @@ const gameReducer = (state: GameState, action: GameAction): GameState => {
     }
 
     case 'ORDER_RAW_MATERIALS': {
-      const { itemName, quantity, cost, deliveryTime } = action;
+      const { materialName, quantity } = action;
+      const materialDetails = AVAILABLE_RAW_MATERIALS[materialName];
+      if (!materialDetails) return state;
+
+      const totalCost = materialDetails.costPerUnit * quantity;
+      const totalDeliveryTime = materialDetails.timePerUnit * quantity;
+
       const newInvoice: Invoice = {
         id: (Math.max(...state.invoices.map(i => i.id), 0) || 0) + 1,
-        itemName,
+        itemName: materialName,
         quantity,
-        totalCost: cost,
+        totalCost,
         status: 'unpaid',
-        deliveryTime,
+        totalDeliveryTime,
       };
       return {
         ...state,
@@ -519,7 +524,7 @@ const gameReducer = (state: GameState, action: GameAction): GameState => {
       newInvoices[invoiceIndex] = {
         ...invoice,
         status: 'paid',
-        deliveryArrivalTime: Date.now() + invoice.deliveryTime * 1000,
+        deliveryArrivalTime: Date.now() + invoice.totalDeliveryTime * 1000,
       };
 
       return {
@@ -585,7 +590,7 @@ export const GameStateProvider = ({ children }: { children: ReactNode }) => {
       
       try {
         const newOrderData = await generateNewOrder(input);
-        const newId = (Math.max(...availableOrders.map(o => o.id), 0) || 0) + 1;
+        const newId = (Math.max(...availableOrders.map(o => o.id).concat(state.productionQueue.map(o=>o.id)), 0) || 0) + 1;
         
         dispatch({
             type: 'ADD_ORDER',
@@ -595,7 +600,11 @@ export const GameStateProvider = ({ children }: { children: ReactNode }) => {
         console.error("Failed to generate new order:", e);
       }
     };
-    generate();
+
+    // Only run if the last generation was more than NEW_ORDER_INTERVAL ago
+    if (Date.now() - lastOrderTimestamp > NEW_ORDER_INTERVAL) {
+        generate();
+    }
   }, [lastOrderTimestamp]);
 
   return (

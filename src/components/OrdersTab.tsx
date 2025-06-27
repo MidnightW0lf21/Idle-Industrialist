@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
-import { Package, DollarSign, Clock, ChevronsRight, Loader2 } from 'lucide-react';
+import { Package, DollarSign, Clock, ChevronsRight, Loader2, Wrench } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast"
 
 export default function OrdersTab() {
@@ -34,7 +34,13 @@ export default function OrdersTab() {
                 <CardContent className="text-sm text-muted-foreground grid grid-cols-2 gap-x-4 gap-y-1">
                   <div className="flex items-center gap-1.5"><Package className="w-4 h-4"/>Quantity: {order.quantity}</div>
                   <div className="flex items-center gap-1.5"><DollarSign className="w-4 h-4"/>Reward: ${order.reward}</div>
-                  <div className="flex items-center gap-1.5 col-span-2"><Clock className="w-4 h-4"/>Time: {order.timeToProduce}s</div>
+                  <div className="flex items-center gap-1.5"><Clock className="w-4 h-4"/>Time: {order.timeToProduce}s</div>
+                  <div className="flex items-center gap-1.5 col-span-2"><Wrench className="w-4 h-4"/>Materials / Pallet:</div>
+                  <ul className="list-disc list-inside text-xs pl-6 col-span-2 -mt-1">
+                    {Object.entries(order.materialRequirements).map(([mat, qty]) => (
+                        <li key={mat}>{qty}x {mat}</li>
+                    ))}
+                  </ul>
                 </CardContent>
                 <CardFooter className="pt-2">
                   <Button onClick={() => handleAcceptOrder(order)} size="sm" className="w-full">Accept Order</Button>

@@ -1,34 +1,51 @@
 
 "use client";
 
-import { useGameState } from '@/contexts/GameStateContext';
+import React, { useState, useEffect } from 'react';
+import { useGameState, AVAILABLE_RAW_MATERIALS } from '@/contexts/GameStateContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
-import { ShoppingCart, FileText, Clock, Truck } from 'lucide-react';
+import { ShoppingCart, FileText, Clock, Truck, Package } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import { Progress } from './ui/progress';
-
-const MATERIALS_ORDER_CONFIG = {
-  itemName: "Electronic Components",
-  quantity: 100,
-  cost: 500,
-  deliveryTime: 60, // 1 minute
-}
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
+import { Input } from './ui/input';
+import { Label } from './ui/label';
 
 export default function InvoicesTab() {
   const { state, dispatch } = useGameState();
   const { toast } = useToast();
 
+  const [selectedMaterial, setSelectedMaterial] = useState(Object.keys(AVAILABLE_RAW_MATERIALS)[0]);
+  const [quantity, setQuantity] = useState(100);
+  const [totalCost, setTotalCost] = useState(0);
+  const [totalTime, setTotalTime] = useState(0);
+
+  useEffect(() => {
+    const materialDetails = AVAILABLE_RAW_MATERIALS[selectedMaterial];
+    const numericQuantity = Number(quantity);
+
+    if (materialDetails && numericQuantity > 0) {
+      setTotalCost(materialDetails.costPerUnit * numericQuantity);
+      setTotalTime(materialDetails.timePerUnit * numericQuantity);
+    } else {
+      setTotalCost(0);
+      setTotalTime(0);
+    }
+  }, [selectedMaterial, quantity]);
+
+
   const handleOrderMaterials = () => {
     dispatch({ 
       type: 'ORDER_RAW_MATERIALS', 
-      ...MATERIALS_ORDER_CONFIG
+      materialName: selectedMaterial,
+      quantity: Number(quantity),
     });
     toast({
       title: "Order Placed!",
-      description: `Invoice for ${MATERIALS_ORDER_CONFIG.quantity} ${MATERIALS_ORDER_CONFIG.itemName} created.`,
+      description: `Invoice for ${quantity}x ${selectedMaterial} created.`,
     });
   };
 
@@ -50,7 +67,7 @@ export default function InvoicesTab() {
   }
 
   const formatTime = (seconds: number) => {
-    if (seconds < 0 || !isFinite(seconds)) return '00:00';
+    if (seconds < 0 || !isFinite(seconds) || isNaN(seconds)) return '00:00';
     const minutes = Math.floor(seconds / 60);
     const remainingSeconds = Math.floor(seconds % 60);
     return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
@@ -64,16 +81,49 @@ export default function InvoicesTab() {
       <Card>
         <CardHeader>
           <CardTitle>Order Raw Materials</CardTitle>
-          <CardDescription>Order a shipment of raw materials to keep your production lines running.</CardDescription>
+          <CardDescription>Order shipments of raw materials to keep your factory running.</CardDescription>
         </CardHeader>
-        <CardContent>
-            <div className="flex justify-between items-center p-2 bg-secondary/30 rounded-md">
-                <span>{MATERIALS_ORDER_CONFIG.quantity}x {MATERIALS_ORDER_CONFIG.itemName}</span>
-                <span className="font-semibold">${MATERIALS_ORDER_CONFIG.cost}</span>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+             <div>
+                <Label htmlFor="material-select">Material</Label>
+                <Select value={selectedMaterial} onValueChange={setSelectedMaterial}>
+                  <SelectTrigger id="material-select">
+                    <SelectValue placeholder="Select material..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(AVAILABLE_RAW_MATERIALS).map(([name, details]) => (
+                      <SelectItem key={name} value={name}>
+                        {name} (${details.costPerUnit.toFixed(2)}/unit)
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+             </div>
+              <div>
+                <Label htmlFor="quantity-input">Quantity</Label>
+                <Input
+                  id="quantity-input"
+                  type="number"
+                  value={quantity}
+                  onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+                  min="1"
+                />
+              </div>
+          </div>
+           <div className="flex justify-between items-center p-2 bg-secondary/30 rounded-md text-sm">
+                <div className="space-y-1">
+                    <p className="font-semibold">Total Cost:</p>
+                    <p className="font-semibold">Est. Delivery Time:</p>
+                </div>
+                <div className="text-right space-y-1">
+                  <p className="font-mono">${totalCost.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>
+                  <p className="font-mono">{formatTime(totalTime)}</p>
+                </div>
             </div>
         </CardContent>
         <CardFooter>
-          <Button onClick={handleOrderMaterials} className="w-full">
+          <Button onClick={handleOrderMaterials} className="w-full" disabled={quantity <= 0}>
             <ShoppingCart className="mr-2 h-4 w-4" /> Place Order
           </Button>
         </CardFooter>
@@ -119,7 +169,7 @@ export default function InvoicesTab() {
             <div className="space-y-3">
               {paidInvoices.length > 0 ? paidInvoices.map(invoice => {
                 const timeRemaining = (invoice.deliveryArrivalTime! - Date.now()) / 1000;
-                const progress = (1 - (timeRemaining / invoice.deliveryTime)) * 100;
+                const progress = (1 - (timeRemaining / invoice.totalDeliveryTime)) * 100;
                 return (
                  <Card key={invoice.id} className="bg-secondary/30">
                    <CardHeader className="pb-2">

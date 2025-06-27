@@ -6,6 +6,7 @@ export interface Order {
   quantity: number;
   reward: number;
   timeToProduce: number; // in ticks
+  materialRequirements: Record<string, number>;
 }
 
 export interface Worker {
@@ -34,6 +35,7 @@ export interface ProductionLine {
   completedQuantity: number;
   assignedWorkerId: number | null;
   isBlockedByMaterials?: boolean;
+  materialRequirements: Record<string, number> | null;
 }
 
 export interface Upgrade {
@@ -73,7 +75,7 @@ export interface Invoice {
   quantity: number;
   totalCost: number;
   status: 'unpaid' | 'paid' | 'delivered';
-  deliveryTime: number; // delivery time in seconds
+  totalDeliveryTime: number; // delivery time in seconds
   deliveryArrivalTime?: number; // timestamp
 }
 
@@ -103,5 +105,5 @@ export type GameAction =
   | { type: 'ASSIGN_WORKER'; workerId: number; lineId: number | null }
   | { type: 'UPGRADE_WORKER'; workerId: number; upgradeType: 'efficiency' | 'stamina' }
   | { type: 'UPGRADE_PRODUCTION_LINE'; lineId: number }
-  | { type: 'ORDER_RAW_MATERIALS'; itemName: string; quantity: number; cost: number; deliveryTime: number }
+  | { type: 'ORDER_RAW_MATERIALS'; materialName: string; quantity: number }
   | { type: 'PAY_INVOICE'; invoiceId: number };

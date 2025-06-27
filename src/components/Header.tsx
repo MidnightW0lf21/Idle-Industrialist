@@ -2,12 +2,11 @@
 
 import { useGameState } from '@/contexts/GameStateContext';
 import { Card, CardContent } from '@/components/ui/card';
-import { DollarSign, Factory, Layers, Cpu } from 'lucide-react';
+import { DollarSign, Factory, Layers } from 'lucide-react';
 
 export default function Header() {
   const { state } = useGameState();
   const totalPallets = Object.values(state.pallets).reduce((sum, p) => sum + p.quantity, 0);
-  const totalComponents = state.rawMaterials['Electronic Components']?.quantity || 0;
 
   return (
     <header className="bg-card border-b sticky top-0 z-10">
@@ -21,12 +20,6 @@ export default function Header() {
             <CardContent className="p-2 flex items-center gap-2">
               <DollarSign className="h-5 w-5 text-green-500" />
               <span className="font-semibold text-lg">${state.money.toLocaleString()}</span>
-            </CardContent>
-          </Card>
-           <Card className="shadow-sm">
-            <CardContent className="p-2 flex items-center gap-2">
-              <Cpu className="h-5 w-5 text-purple-500" />
-              <span className="font-semibold text-lg">{totalComponents.toLocaleString()}</span>
             </CardContent>
           </Card>
           <Card className="shadow-sm">

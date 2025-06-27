@@ -5,7 +5,7 @@ import { useGameState } from '@/contexts/GameStateContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
-import { Warehouse, Truck, AlertCircle, Package, Clock, CircleDollarSign } from 'lucide-react';
+import { Warehouse, Truck, AlertCircle, Package, Clock, CircleDollarSign, Component } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import { Separator } from '@/components/ui/separator';
 import { Input } from '@/components/ui/input';
@@ -97,6 +97,29 @@ export default function WarehouseDisplay() {
       </CardHeader>
       
       <CardContent className="flex-grow space-y-6">
+        <div className="space-y-2">
+            <h3 className="font-semibold font-headline flex items-center gap-2">
+                <Component className="w-5 h-5 text-muted-foreground" />
+                Raw Materials Stock
+            </h3>
+            <ScrollArea className="h-24 w-full rounded-md border">
+                <div className="p-2 text-sm">
+                    {Object.entries(state.rawMaterials).length > 0 ? (
+                    <ul className="space-y-1">
+                        {Object.entries(state.rawMaterials).map(([name, details]) => (
+                        <li key={name} className="flex justify-between items-center p-1">
+                            <span>{name}</span>
+                            <span className="font-mono font-medium bg-muted px-2 py-0.5 rounded-md">{details.quantity.toLocaleString()}</span>
+                        </li>
+                        ))}
+                    </ul>
+                    ) : (
+                    <p className="text-center text-muted-foreground p-4">No raw materials in stock.</p>
+                    )}
+                </div>
+            </ScrollArea>
+        </div>
+
         <Separator />
         
         {/* SHIPMENT CREATION */}

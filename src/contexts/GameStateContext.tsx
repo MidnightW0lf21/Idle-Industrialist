@@ -12,12 +12,12 @@ const initialOrders: Order[] = [
 ];
 
 export const AVAILABLE_RAW_MATERIALS: Record<string, { costPerUnit: number, timePerUnit: number }> = {
-  'Resistors': { costPerUnit: 0.1, timePerUnit: 0.3 },
-  'Capacitors': { costPerUnit: 0.2, timePerUnit: 0.45 },
-  'Transistors': { costPerUnit: 0.5, timePerUnit: 0.6 },
-  'LEDs': { costPerUnit: 0.3, timePerUnit: 0.3 },
-  'PCBs': { costPerUnit: 2, timePerUnit: 3 },
-  'Integrated Circuits': { costPerUnit: 5, timePerUnit: 6 },
+  'Resistors': { costPerUnit: 0.1, timePerUnit: 0.5 },
+  'Capacitors': { costPerUnit: 0.2, timePerUnit: 0.7 },
+  'Transistors': { costPerUnit: 0.5, timePerUnit: 0.9 },
+  'LEDs': { costPerUnit: 0.3, timePerUnit: 0.5 },
+  'PCBs': { costPerUnit: 2, timePerUnit: 4 },
+  'Integrated Circuits': { costPerUnit: 5, timePerUnit: 8 },
 };
 
 const ALL_VEHICLES: Record<string, Vehicle> = {
@@ -144,7 +144,6 @@ const gameReducer = (state: GameState, action: GameAction): GameState => {
           return currentLine;
         }
         
-        // Check if there are enough materials for at least one pallet
         const hasMaterialsForOne = Object.entries(currentLine.materialRequirements ?? {}).every(
           ([material, needed]) => (newState.rawMaterials[material]?.quantity ?? 0) >= needed
         );
@@ -188,6 +187,8 @@ const gameReducer = (state: GameState, action: GameAction): GameState => {
             
             palletsInWarehouse += palletsToAdd;
             currentLine.completedQuantity += palletsToAdd;
+          } else {
+            currentLine.isBlockedByMaterials = true;
           }
         }
         

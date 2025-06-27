@@ -1,12 +1,41 @@
 "use client";
 
+import { useState, useEffect } from 'react';
 import { useGameState } from '@/contexts/GameStateContext';
 import { Card, CardContent } from '@/components/ui/card';
-import { DollarSign, Factory, Layers } from 'lucide-react';
+import { DollarSign, Factory, Layers, Sun, Moon } from 'lucide-react';
+import { Button } from './ui/button';
 
 export default function Header() {
   const { state } = useGameState();
   const totalPallets = Object.values(state.pallets).reduce((sum, p) => sum + p.quantity, 0);
+
+  const [theme, setTheme] = useState('light');
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+    const localTheme = localStorage.getItem('theme');
+    if (localTheme) {
+      setTheme(localTheme);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (mounted) {
+      if (theme === 'dark') {
+        document.documentElement.classList.add('dark');
+        localStorage.setItem('theme', 'dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+        localStorage.setItem('theme', 'light');
+      }
+    }
+  }, [theme, mounted]);
+  
+  const toggleTheme = () => {
+    setTheme(theme === 'light' ? 'dark' : 'light');
+  };
 
   return (
     <header className="bg-card border-b sticky top-0 z-10">
@@ -28,6 +57,19 @@ export default function Header() {
               <span className="font-semibold text-lg">{totalPallets.toLocaleString()}</span>
             </CardContent>
           </Card>
+          
+          {mounted ? (
+            <Button variant="outline" size="icon" onClick={toggleTheme} aria-label="Toggle theme">
+              {theme === 'light' ? (
+                <Moon className="h-[1.2rem] w-[1.2rem]" />
+              ) : (
+                <Sun className="h-[1.2rem] w-[1.2rem]" />
+              )}
+            </Button>
+          ) : (
+            <div className="w-10 h-10" />
+          )}
+
         </div>
       </div>
     </header>

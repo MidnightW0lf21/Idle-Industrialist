@@ -5,10 +5,10 @@ import type { GameState, GameAction, Order, ProductionLine, Upgrade, StoredPalle
 import { generateNewOrder } from '@/ai/flows/order-generation-flow';
 
 const initialOrders: Order[] = [
-  { id: 1, productName: "Standard Widgets", quantity: 10, reward: 150, timeToProduce: 10 },
-  { id: 2, productName: "Advanced Gears", quantity: 5, reward: 250, timeToProduce: 20 },
-  { id: 3, productName: "Basic Frames", quantity: 20, reward: 100, timeToProduce: 5 },
-  { id: 4, productName: "Complex Circuits", quantity: 8, reward: 500, timeToProduce: 30 },
+  { id: 1, productName: "1k Ohm Resistors", quantity: 100, reward: 150, timeToProduce: 10 },
+  { id: 2, productName: "10uF Ceramic Capacitors", quantity: 50, reward: 250, timeToProduce: 20 },
+  { id: 3, productName: "5mm Red LEDs", quantity: 75, reward: 100, timeToProduce: 5 },
+  { id: 4, productName: "ATmega328P Microcontrollers", quantity: 10, reward: 500, timeToProduce: 30 },
 ];
 
 const initialUpgrades: Record<string, Upgrade> = {

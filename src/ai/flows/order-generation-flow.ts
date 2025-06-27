@@ -24,8 +24,8 @@ export type GenerateOrderInput = z.infer<typeof GenerateOrderInputSchema>;
 
 // Output schema for the new order
 const NewOrderOutputSchema = z.object({
-  productName: z.string().describe("A creative, industrial-sounding product name. E.g., 'Hyper-Sprockets', 'Quantum Girders', 'Cryo-Coolant Gel'."),
-  quantity: z.number().int().min(5).max(100).describe("The number of units to produce. Should be balanced based on player's capacity."),
+  productName: z.string().describe("A common electronic component. E.g., '1k Ohm Resistors', '100uF Capacitors', '5mm Red LEDs', 'ATmega328P Microcontroller'."),
+  quantity: z.number().int().min(5).max(500).describe("The number of units to produce. Should be balanced based on player's capacity."),
   reward: z.number().int().min(100).describe("The total monetary reward for completing the order. Should be proportional to quantity and time."),
   timeToProduce: z.number().int().min(5).max(60).describe("The time in seconds (ticks) required to produce the entire order on a single line."),
 });
@@ -37,10 +37,9 @@ export async function generateNewOrder(input: GenerateOrderInput): Promise<Omit<
 
 const prompt = ai.definePrompt({
   name: 'generateOrderPrompt',
-  model: 'googleai/gemini-2.0-flash',
   input: { schema: GenerateOrderInputSchema },
   output: { schema: NewOrderOutputSchema },
-  prompt: `You are a logistics AI for a factory simulation game. Your task is to generate a new, balanced order for the player.
+  prompt: `You are a logistics AI for an electronics factory simulation game. Your task is to generate a new, balanced order for the player. The products are real-life electronic components.
 
   Analyze the player's current situation:
   - Money: {{playerMoney}}
@@ -51,7 +50,7 @@ const prompt = ai.definePrompt({
   - If the player has a lot of money, make the order larger and more rewarding.
   - If warehouse usage is high, create smaller orders.
   - The reward should be balanced against the quantity and production time. A longer, larger order should be worth more.
-  - Be creative with the product name! It should sound like something from a futuristic industrial setting. Avoid generic names.
+  - Use names of real-life electronic components for the product name. Be specific, like '10k Ohm Resistors' or '2N3904 Transistors'.
   `,
 });
 
@@ -62,7 +61,11 @@ const generateOrderFlow = ai.defineFlow(
     outputSchema: NewOrderOutputSchema,
   },
   async (input) => {
-    const { output } = await prompt(input);
+    const { output } = await ai.generate({
+      prompt,
+      model: 'googleai/gemini-2.0-flash',
+      input,
+    });
     return output!;
   }
 );

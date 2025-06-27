@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useGameState } from '@/contexts/GameStateContext';
 import { Card, CardContent } from '@/components/ui/card';
-import { DollarSign, Factory, Layers, Sun, Moon, Star } from 'lucide-react';
+import { DollarSign, Factory, Layers, Sun, Moon, Star, Zap } from 'lucide-react';
 import { Button } from './ui/button';
 
 export default function Header() {
@@ -61,6 +61,14 @@ export default function Header() {
             <CardContent className="p-2 flex items-center gap-2">
               <Star className="h-5 w-5 text-yellow-400" />
               <span className="font-semibold text-lg">{state.reputation.toLocaleString()}</span>
+            </CardContent>
+          </Card>
+           <Card className="shadow-sm">
+            <CardContent className="p-2 flex items-center gap-2">
+              <Zap className="h-5 w-5 text-yellow-500" />
+              <span className={`font-semibold text-lg ${state.powerUsage > state.powerCapacity ? 'text-destructive' : ''}`}>
+                {state.powerUsage.toFixed(0)}/{state.powerCapacity.toFixed(0)} MW
+              </span>
             </CardContent>
           </Card>
           

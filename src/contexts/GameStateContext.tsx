@@ -36,10 +36,14 @@ const WAREHOUSE_CAPACITY_UPGRADE_BASE_AMOUNT = 20;
 const WAREHOUSE_CAPACITY_UPGRADE_POWER = 1.6;
 const CERTIFICATION_BASE_COST = 2500;
 const MAX_PRODUCTION_LINES = 12;
+const POWER_GRID_BASE_COST = 3000;
+const POWER_CAPACITY_UPGRADE_BASE_AMOUNT = 15;
+const LINE_POWER_CONSUMPTION = 5; // in MW
 
 const initialUpgrades: Record<string, Upgrade> = {
   'add_line': { id: 'add_line', name: "New Production Line", description: "Build an additional production line.", level: 1, cost: 1000 },
   'warehouse_expansion': { id: 'warehouse_expansion', name: "Warehouse Expansion", description: `Increase warehouse capacity by ${WAREHOUSE_CAPACITY_UPGRADE_BASE_AMOUNT} pallets.`, level: 1, cost: WAREHOUSE_EXPANSION_BASE_COST },
+  'power_expansion': { id: 'power_expansion', name: "Power Grid Expansion", description: `Increase power capacity by ${POWER_CAPACITY_UPGRADE_BASE_AMOUNT} MW.`, level: 1, cost: POWER_GRID_BASE_COST },
   'cert_level_2': { id: 'cert_level_2', name: "Logistics Certification I", description: "Unlocks access to more complex and profitable orders.", level: 2, cost: CERTIFICATION_BASE_COST },
   'unlock_pickup': { id: 'unlock_pickup', name: "Buy Pickup Truck", description: "Capacity: 10 pallets, faster delivery.", level: 1, cost: 1500 },
   'unlock_van': { id: 'unlock_van', name: "Buy Cargo Van", description: "Capacity: 25 pallets.", level: 1, cost: 4000 },
@@ -76,6 +80,8 @@ const initialState: GameState = {
   pallets: {},
   rawMaterials: {},
   warehouseCapacity: 20,
+  powerCapacity: 10,
+  powerUsage: 0,
   productionLines: [{ id: 1, orderId: null, productName: null, progress: 0, timeToProduce: 0, efficiency: 1, efficiencyLevel: 1, quantity: 0, reward: 0, completedQuantity: 0, assignedWorkerId: null, materialRequirements: null, isBlockedByMaterials: false }],
   availableOrders: [],
   productionQueue: [],
@@ -139,6 +145,8 @@ const gameReducer = (state: GameState, action: GameAction): GameState => {
       }
 
       const isStrike = newState.activeEvent?.type === 'WORKER_STRIKE' && !newState.activeEvent.isResolved;
+      let powerUsage = 0;
+
 
       // --- Wages & Worker Energy (only if no strike) ---
       if (!isStrike) {
@@ -163,6 +171,21 @@ const gameReducer = (state: GameState, action: GameAction): GameState => {
             }
         });
         
+        // --- Calculate Power Usage for active lines ---
+        powerUsage = newState.productionLines.reduce((sum, line) => {
+            const worker = newState.workers.find(w => w.id === line.assignedWorkerId);
+            const hasMaterials = Object.entries(line.materialRequirements ?? {}).every(
+                ([material, needed]) => (newState.rawMaterials[material]?.quantity ?? 0) >= needed
+            );
+            if (line.orderId !== null && worker && hasMaterials) {
+                return sum + LINE_POWER_CONSUMPTION;
+            }
+            return sum;
+        }, 0);
+        newState.powerUsage = powerUsage;
+        
+        const powerGridEfficiency = powerUsage > newState.powerCapacity ? newState.powerCapacity / powerUsage : 1;
+
         // --- Production Logic (only if no strike) ---
         newState.productionLines = newState.productionLines.map(line => {
           let currentLine = {...line, isBlockedByMaterials: false};
@@ -192,7 +215,7 @@ const gameReducer = (state: GameState, action: GameAction): GameState => {
           }
           
           const efficiencyBoost = newState.activeEvent?.type === 'GLOBAL_EFFICIENCY_BOOST' ? (newState.activeEvent.efficiencyBoost || 1) : 1;
-          const effectiveEfficiency = currentLine.efficiency * worker.efficiency * efficiencyBoost;
+          const effectiveEfficiency = currentLine.efficiency * worker.efficiency * efficiencyBoost * powerGridEfficiency;
           const progressIncrease = (100 / currentLine.timeToProduce) * effectiveEfficiency;
           const newProgress = Math.min(100, currentLine.progress + progressIncrease);
 
@@ -265,7 +288,9 @@ const gameReducer = (state: GameState, action: GameAction): GameState => {
               newState.activeOrders.push(nextOrder);
           }
         }
-      } // end if(!isStrike)
+      } else {
+        newState.powerUsage = 0;
+      }
 
       // --- Achievement Checks ---
       const checkAndComplete = (id: string, condition: boolean) => {
@@ -396,6 +421,20 @@ const gameReducer = (state: GameState, action: GameAction): GameState => {
               description: `Increase warehouse capacity by ${nextAmountToAdd} pallets.`,
             };
           }
+          newState.upgrades = newUpgrades;
+          break;
+        }
+        case 'power_expansion': {
+          const nextLevel = upgrade.level + 1;
+          const amountToAdd = Math.floor(POWER_CAPACITY_UPGRADE_BASE_AMOUNT * Math.pow(upgrade.level, 1.5));
+          newState.powerCapacity += amountToAdd;
+          
+          newUpgrades['power_expansion'] = {
+              ...upgrade,
+              cost: Math.floor(POWER_GRID_BASE_COST * Math.pow(nextLevel, 1.8)),
+              level: nextLevel,
+              description: `Increase power capacity by ${Math.floor(POWER_CAPACITY_UPGRADE_BASE_AMOUNT * Math.pow(nextLevel, 1.5))} MW.`,
+          };
           newState.upgrades = newUpgrades;
           break;
         }

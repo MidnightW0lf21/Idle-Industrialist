@@ -109,6 +109,8 @@ export interface GameState {
   pallets: Record<string, StoredPallet>;
   rawMaterials: Record<string, { quantity: number }>;
   warehouseCapacity: number;
+  powerCapacity: number;
+  powerUsage: number;
   productionLines: ProductionLine[];
   availableOrders: Order[];
   productionQueue: Order[];

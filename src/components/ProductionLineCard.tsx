@@ -22,8 +22,11 @@ export default function ProductionLineCard({ line }: ProductionLineCardProps) {
 
   const worker = state.workers.find(w => w.id === line.assignedWorkerId);
   const efficiencyBoost = state.activeEvent?.type === 'GLOBAL_EFFICIENCY_BOOST' ? (state.activeEvent.efficiencyBoost || 1) : 1;
-  const effectiveEfficiency = worker ? line.efficiency * worker.efficiency * efficiencyBoost : line.efficiency * efficiencyBoost;
   const isStrike = state.activeEvent?.type === 'WORKER_STRIKE' && !state.activeEvent.isResolved;
+  
+  const powerGridEfficiency = state.powerUsage > state.powerCapacity ? state.powerCapacity / state.powerUsage : 1;
+  
+  const effectiveEfficiency = worker ? line.efficiency * worker.efficiency * efficiencyBoost * powerGridEfficiency : line.efficiency * efficiencyBoost * powerGridEfficiency;
 
   // Time remaining calculation needs to account for efficiency
   const timeRemaining = line.orderId && effectiveEfficiency > 0 ? (line.timeToProduce / effectiveEfficiency) * (1 - (line.progress / 100)) : 0;
@@ -69,7 +72,7 @@ export default function ProductionLineCard({ line }: ProductionLineCardProps) {
       <CardHeader>
         <CardTitle className="flex items-start justify-between">
           <span className="flex items-center gap-2">
-            <Cog className={`w-5 h-5 ${line.orderId && line.assignedWorkerId && !line.isBlockedByMaterials && !isStrike ? 'animate-spin' : ''}`} style={{ animationDuration: `${Math.max(0.5, 5 / effectiveEfficiency)}s` }}/>
+            <Cog className={`w-5 h-5 ${line.orderId && line.assignedWorkerId && !line.isBlockedByMaterials && !isStrike && powerGridEfficiency > 0 ? 'animate-spin' : ''}`} style={{ animationDuration: `${Math.max(0.5, 5 / effectiveEfficiency)}s` }}/>
             Production Line {line.id}
           </span>
            <div className="w-28 text-right space-y-1">
@@ -125,6 +128,12 @@ export default function ProductionLineCard({ line }: ProductionLineCardProps) {
                 <div className="flex items-center gap-2 text-destructive text-xs pt-1">
                     <AlertTriangle className="w-4 h-4" />
                     <p>Production halted: worker strike!</p>
+                </div>
+            )}
+            {powerGridEfficiency < 1 && line.orderId && line.assignedWorkerId && !line.isBlockedByMaterials && !isStrike && (
+                <div className="flex items-center gap-2 text-yellow-600 dark:text-yellow-400 text-xs pt-1">
+                    <Zap className="w-4 h-4" />
+                    <p>Power shortage! Production slowed.</p>
                 </div>
             )}
           </div>

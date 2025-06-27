@@ -18,7 +18,7 @@ const initialUpgrades: Record<string, Upgrade> = {
 };
 
 const initialWorkers: Worker[] = [
-    { id: 1, name: "Alice", wage: 1, assignedLineId: 1, energy: 100, maxEnergy: 100, efficiency: 1, stamina: 1, efficiencyLevel: 1, staminaLevel: 1 },
+    { id: 1, name: "Alice", wage: 1, assignedLineId: null, energy: 100, maxEnergy: 100, efficiency: 1, stamina: 1, efficiencyLevel: 1, staminaLevel: 1 },
     { id: 2, name: "Bob", wage: 1, assignedLineId: null, energy: 100, maxEnergy: 100, efficiency: 1, stamina: 1, efficiencyLevel: 1, staminaLevel: 1 },
 ];
 
@@ -31,7 +31,7 @@ const initialState: GameState = {
   money: 500,
   pallets: {},
   warehouseCapacity: 100,
-  productionLines: [{ id: 1, orderId: null, productName: null, progress: 0, timeToProduce: 0, efficiency: 1, quantity: 0, reward: 0, completedQuantity: 0, assignedWorkerId: 1 }],
+  productionLines: [{ id: 1, orderId: null, productName: null, progress: 0, timeToProduce: 0, efficiency: 1, quantity: 0, reward: 0, completedQuantity: 0, assignedWorkerId: null }],
   availableOrders: initialOrders,
   productionQueue: [],
   upgrades: initialUpgrades,

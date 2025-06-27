@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { useGameState } from '@/contexts/GameStateContext';
+import { useGameState, AVAILABLE_RAW_MATERIALS } from '@/contexts/GameStateContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
@@ -98,27 +98,20 @@ export default function WarehouseDisplay() {
       
       <CardContent className="flex-grow space-y-6">
         <div className="space-y-2">
-            <h3 className="font-semibold font-headline flex items-center gap-2">
-                <Component className="w-5 h-5 text-muted-foreground" />
-                Raw Materials Stock
-            </h3>
-            <ScrollArea className="h-24 w-full rounded-md border">
-                <div className="p-2 text-sm">
-                    {Object.entries(state.rawMaterials).length > 0 ? (
-                    <ul className="space-y-1">
-                        {Object.entries(state.rawMaterials).map(([name, details]) => (
-                        <li key={name} className="flex justify-between items-center p-1">
-                            <span>{name}</span>
-                            <span className="font-mono font-medium bg-muted px-2 py-0.5 rounded-md">{details.quantity.toLocaleString()}</span>
-                        </li>
-                        ))}
-                    </ul>
-                    ) : (
-                    <p className="text-center text-muted-foreground p-4">No raw materials in stock.</p>
-                    )}
-                </div>
-            </ScrollArea>
+          <h3 className="font-semibold font-headline flex items-center gap-2">
+            <Component className="w-5 h-5 text-muted-foreground" />
+            Raw Materials Stock
+          </h3>
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-2 rounded-md border p-2">
+            {Object.keys(AVAILABLE_RAW_MATERIALS).map((name) => (
+              <div key={name} className="bg-secondary/30 p-2 rounded-md text-sm flex flex-col justify-between">
+                <span className="font-medium text-muted-foreground">{name}</span>
+                <span className="font-mono font-bold text-lg text-right">{(state.rawMaterials[name]?.quantity || 0).toLocaleString()}</span>
+              </div>
+            ))}
+          </div>
         </div>
+
 
         <Separator />
         

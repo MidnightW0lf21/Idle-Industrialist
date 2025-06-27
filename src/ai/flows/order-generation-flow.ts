@@ -55,7 +55,7 @@ const prompt = ai.definePrompt({
   - Use names of real-life electronic components for the product name. Be specific, like '10k Ohm Resistors' or '2N3904 Transistors'.
   - Production is slow. Each unit/pallet should take between 30 and 120 seconds to produce. Set the 'timeToProduce' field to the total time in seconds for the whole order based on this rate and the quantity.
   - You must also specify the raw materials required to produce a single unit/pallet. The \`materialRequirements\` field should be a JSON object mapping material names to the quantity needed. Choose 1 to 3 materials. The quantities for each material per pallet should be substantial, ranging from 25 to 100 units, reflecting a complex assembly.
-  - Available raw materials: Resistors, Capacitors, Transistors, LEDs, PCBs, Integrated Circuits.
+  - Available raw materials: Resistors, Capacitors, Transistors, LEDs, PCBs, Integrated Circuits, Diodes, Inductors, Quartz Crystals, Switches.
   `,
 });
 

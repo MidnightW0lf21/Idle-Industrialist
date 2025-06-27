@@ -37,6 +37,7 @@ export async function generateNewOrder(input: GenerateOrderInput): Promise<Omit<
 
 const prompt = ai.definePrompt({
   name: 'generateOrderPrompt',
+  model: 'googleai/gemini-2.0-flash',
   input: { schema: GenerateOrderInputSchema },
   output: { schema: NewOrderOutputSchema },
   prompt: `You are a logistics AI for a factory simulation game. Your task is to generate a new, balanced order for the player.

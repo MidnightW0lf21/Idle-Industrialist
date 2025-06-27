@@ -48,7 +48,20 @@ const initialState: GameState = {
 const gameReducer = (state: GameState, action: GameAction): GameState => {
   switch (action.type) {
     case 'TICK': {
-      let newState = { ...state };
+      // Create a deep-enough copy of state to avoid mutation bugs.
+      const newPallets = { ...state.pallets };
+      for (const key in newPallets) {
+        newPallets[key] = { ...newPallets[key] };
+      }
+      
+      let newState = {
+        ...state,
+        pallets: newPallets,
+        workers: state.workers.map(w => ({...w})),
+        productionLines: state.productionLines.map(l => ({...l})),
+        activeShipments: state.activeShipments.map(s => ({...s}))
+      };
+
       let palletsInWarehouse = Object.values(newState.pallets).reduce((sum, p) => sum + p.quantity, 0);
 
       // --- Handle Completed Shipments ---
@@ -87,37 +100,38 @@ const gameReducer = (state: GameState, action: GameAction): GameState => {
       
       // Production Logic
       newState.productionLines = newState.productionLines.map(line => {
-        if (line.assignedWorkerId && exhaustedWorkerIds.has(line.assignedWorkerId)) {
-            line.assignedWorkerId = null;
+        let currentLine = {...line};
+        if (currentLine.assignedWorkerId && exhaustedWorkerIds.has(currentLine.assignedWorkerId)) {
+            currentLine.assignedWorkerId = null;
         }
         
-        if (line.orderId === null || line.assignedWorkerId === null) {
-          return line;
+        if (currentLine.orderId === null || currentLine.assignedWorkerId === null) {
+          return currentLine;
         }
         
-        const worker = newState.workers.find(w => w.id === line.assignedWorkerId);
-        if (!worker) return line;
+        const worker = newState.workers.find(w => w.id === currentLine.assignedWorkerId);
+        if (!worker) return currentLine;
 
         const spaceAvailable = newState.warehouseCapacity - palletsInWarehouse;
         if (spaceAvailable <= 0) {
-          return line;
+          return currentLine;
         }
 
-        const effectiveEfficiency = line.efficiency * worker.efficiency;
-        const progressIncrease = (100 / line.timeToProduce) * effectiveEfficiency;
-        const newProgress = Math.min(100, line.progress + progressIncrease);
+        const effectiveEfficiency = currentLine.efficiency * worker.efficiency;
+        const progressIncrease = (100 / currentLine.timeToProduce) * effectiveEfficiency;
+        const newProgress = Math.min(100, currentLine.progress + progressIncrease);
 
-        const totalPalletsGoal = Math.floor((newProgress / 100) * line.quantity);
-        const newlyProduced = totalPalletsGoal - line.completedQuantity;
+        const totalPalletsGoal = Math.floor((newProgress / 100) * currentLine.quantity);
+        const newlyProduced = totalPalletsGoal - currentLine.completedQuantity;
         
-        let updatedLine = { ...line, progress: newProgress };
+        currentLine.progress = newProgress;
 
         if (newlyProduced > 0) {
           const palletsToAdd = Math.min(newlyProduced, spaceAvailable);
           
           if (palletsToAdd > 0) {
-            const productName = line.productName!;
-            const valuePerPallet = line.reward / line.quantity;
+            const productName = currentLine.productName!;
+            const valuePerPallet = currentLine.reward / currentLine.quantity;
             const existingPallets = newState.pallets[productName] || { quantity: 0, value: valuePerPallet };
             
             newState.pallets[productName] = {
@@ -126,15 +140,15 @@ const gameReducer = (state: GameState, action: GameAction): GameState => {
             };
             
             palletsInWarehouse += palletsToAdd;
-            updatedLine.completedQuantity += palletsToAdd;
+            currentLine.completedQuantity += palletsToAdd;
           }
         }
         
-        if (updatedLine.progress >= 100 && updatedLine.completedQuantity >= line.quantity) {
-          return { ...line, orderId: null, productName: null, progress: 0, timeToProduce: 0, quantity: 0, reward: 0, completedQuantity: 0 };
+        if (currentLine.progress >= 100 && currentLine.completedQuantity >= currentLine.quantity) {
+          return { ...currentLine, orderId: null, productName: null, progress: 0, timeToProduce: 0, quantity: 0, reward: 0, completedQuantity: 0 };
         }
 
-        return updatedLine;
+        return currentLine;
       });
 
       // Auto-assign from queue if a line is free and warehouse has space
@@ -192,9 +206,11 @@ const gameReducer = (state: GameState, action: GameAction): GameState => {
           totalQuantity += toShip;
           totalValue += toShip * newPalletsState[productName].value;
 
-          newPalletsState[productName].quantity -= toShip;
-          if (newPalletsState[productName].quantity <= 0) {
+          const newQuantity = available - toShip;
+          if (newQuantity <= 0) {
             delete newPalletsState[productName];
+          } else {
+             newPalletsState[productName] = {...newPalletsState[productName], quantity: newQuantity};
           }
         }
       }

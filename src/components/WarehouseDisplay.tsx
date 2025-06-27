@@ -20,6 +20,12 @@ export default function WarehouseDisplay() {
   const [palletsToShip, setPalletsToShip] = useState<Record<string, number>>({});
   const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(null);
 
+  // Fix for hydration error by ensuring locale-specific formatting only runs on the client
+  const [isClient, setIsClient] = useState(false);
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
   const totalStoredPallets = Object.values(state.pallets).reduce((sum, p) => sum + p.quantity, 0);
   const totalRawMaterialUnits = Object.values(state.rawMaterials).reduce((sum, m) => sum + (m?.quantity || 0), 0);
   const rawMaterialSpaceUsed = totalRawMaterialUnits / RAW_MATERIAL_UNITS_PER_PALLET_SPACE;
@@ -89,7 +95,7 @@ export default function WarehouseDisplay() {
         </CardTitle>
         <div className="flex justify-between items-center pt-2">
             <span className="font-medium text-sm">Storage Capacity</span>
-            <span className="text-muted-foreground text-sm">{Math.ceil(totalSpaceUsed).toLocaleString()} / {state.warehouseCapacity.toLocaleString()} Pallet Spaces</span>
+            <span className="text-muted-foreground text-sm">{isClient ? Math.ceil(totalSpaceUsed).toLocaleString() : Math.ceil(totalSpaceUsed)} / {isClient ? state.warehouseCapacity.toLocaleString() : state.warehouseCapacity} Pallet Spaces</span>
         </div>
         <Progress value={warehouseUsage} className="transition-all duration-500 ease-out h-2" />
         {isFull && (
@@ -110,7 +116,7 @@ export default function WarehouseDisplay() {
             {Object.keys(AVAILABLE_RAW_MATERIALS).map((name) => (
               <div key={name} className="bg-secondary/30 p-2 rounded-md text-sm flex flex-col justify-between">
                 <span className="font-medium text-muted-foreground">{name}</span>
-                <span className="font-mono font-bold text-lg text-right">{(state.rawMaterials[name]?.quantity || 0).toLocaleString()}</span>
+                <span className="font-mono font-bold text-lg text-right">{isClient ? (state.rawMaterials[name]?.quantity || 0).toLocaleString() : (state.rawMaterials[name]?.quantity || 0)}</span>
               </div>
             ))}
           </div>
@@ -188,7 +194,7 @@ export default function WarehouseDisplay() {
                   <div key={shipment.id} className="text-sm p-2 rounded-md bg-secondary/50">
                     <div className="flex justify-between items-center">
                       <span className="font-medium flex items-center gap-2"><Truck className="w-4 h-4 text-primary" /> {shipment.vehicle.name}</span>
-                      <span className="font-mono text-green-600">${shipment.totalValue.toLocaleString()}</span>
+                      <span className="font-mono text-green-600">${isClient ? shipment.totalValue.toLocaleString() : shipment.totalValue}</span>
                     </div>
                      <Progress value={progress} className="h-1 mt-1" />
                     <div className="flex justify-between items-center text-xs text-muted-foreground mt-1">
@@ -211,8 +217,8 @@ export default function WarehouseDisplay() {
         <div className="flex justify-between items-center text-sm p-1">
           <span className="font-semibold">Selected:</span>
           <div className="text-right space-y-1">
-            <p className="flex items-center gap-1.5 justify-end"><Package className="w-4 h-4" />{totalSelectedQuantity.toLocaleString()} pallets</p>
-            <p className="flex items-center gap-1.5 justify-end"><CircleDollarSign className="w-4 h-4" />${totalSelectedValue.toLocaleString()}</p>
+            <p className="flex items-center gap-1.5 justify-end"><Package className="w-4 h-4" />{isClient ? totalSelectedQuantity.toLocaleString() : totalSelectedQuantity} pallets</p>
+            <p className="flex items-center gap-1.5 justify-end"><CircleDollarSign className="w-4 h-4" />${isClient ? totalSelectedValue.toLocaleString() : totalSelectedValue}</p>
             {selectedVehicle && totalSelectedQuantity > 0 && (
               <p className="flex items-center gap-1.5 justify-end text-muted-foreground"><Clock className="w-4 h-4" />Est. Time: {formatTime(selectedVehicle.timePerPallet * totalSelectedQuantity)}</p>
             )}

@@ -2,7 +2,7 @@
 "use client";
 
 import React, { createContext, useContext, useReducer, useEffect, ReactNode, useRef } from 'react';
-import type { GameState, GameAction, Order, ProductionLine, Upgrade, StoredPallet, Worker, Vehicle, Shipment, Invoice } from '@/types';
+import type { GameState, GameAction, Order, ProductionLine, Upgrade, StoredPallet, Worker, Vehicle, Shipment, Invoice, Achievement } from '@/types';
 import { generateNewOrder } from '@/ai/flows/order-generation-flow';
 import { Truck, MoveHorizontal, Car } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast"
@@ -34,7 +34,7 @@ const WAREHOUSE_EXPANSION_BASE_COST = 750;
 const WAREHOUSE_CAPACITY_UPGRADE_BASE_AMOUNT = 20;
 const WAREHOUSE_CAPACITY_UPGRADE_POWER = 1.6;
 const CERTIFICATION_BASE_COST = 2500;
-
+const MAX_PRODUCTION_LINES = 12;
 
 const initialUpgrades: Record<string, Upgrade> = {
   'add_line': { id: 'add_line', name: "New Production Line", description: "Build an additional production line.", level: 1, cost: 1000 },
@@ -46,6 +46,15 @@ const initialUpgrades: Record<string, Upgrade> = {
   'unlock_semitruck': { id: 'unlock_semitruck', name: "Buy Semi-Truck", description: "Capacity: 200 pallets, very efficient.", level: 1, cost: 25000 },
 };
 
+const initialAchievements: Record<string, Achievement> = {
+  'first_million': { id: 'first_million', name: "Millionaire", description: "Earn your first $1,000,000.", isCompleted: false },
+  'ship_1000_pallets': { id: 'ship_1000_pallets', name: "Bulk Shipper", description: "Ship 1,000 total pallets.", isCompleted: false },
+  'max_lines': { id: 'max_lines', name: "Full Capacity", description: "Build all 12 production lines.", isCompleted: false },
+  'master_logistician': { id: 'master_logistician', name: "Master Logistician", description: "Unlock the Semi-Truck.", isCompleted: false },
+  'expert_certified': { id: 'expert_certified', name: "Expert Certified", description: "Reach the highest certification level (Level 5).", isCompleted: false },
+};
+
+
 const initialWorkers: Worker[] = [
     { id: 1, name: "Alice", wage: 0.2, assignedLineId: null, energy: 100, maxEnergy: 100, efficiency: 1, stamina: 1, efficiencyLevel: 1, staminaLevel: 1 },
 ];
@@ -56,7 +65,7 @@ const POSSIBLE_WORKER_NAMES = ["Charlie", "Dana", "Eli", "Frankie", "Gabi", "Har
 
 const LINE_EFFICIENCY_UPGRADE_BASE_COST = 400;
 const LINE_EFFICIENCY_CAP = 5;
-const MAX_PRODUCTION_LINES = 12;
+
 const MAX_WAREHOUSE_CAPACITY = 1500;
 const PRODUCTION_QUEUE_CAP = 10;
 
@@ -77,6 +86,8 @@ const initialState: GameState = {
   activeShipments: [],
   invoices: [],
   certificationLevel: 1,
+  achievements: initialAchievements,
+  totalPalletsShipped: 0,
 };
 
 const gameReducer = (state: GameState, action: GameAction): GameState => {
@@ -97,7 +108,9 @@ const gameReducer = (state: GameState, action: GameAction): GameState => {
       const completedShipments = newState.activeShipments.filter(s => now >= s.arrivalTime);
       if (completedShipments.length > 0) {
         const totalEarnings = completedShipments.reduce((sum, s) => sum + s.totalValue, 0);
+        const totalPallets = completedShipments.reduce((sum, s) => sum + s.totalQuantity, 0);
         newState.money += totalEarnings;
+        newState.totalPalletsShipped += totalPallets;
         newState.activeShipments = newState.activeShipments.filter(s => now < s.arrivalTime);
       }
 
@@ -232,6 +245,20 @@ const gameReducer = (state: GameState, action: GameAction): GameState => {
             newState.productionQueue = newState.productionQueue.slice(1);
         }
       }
+
+      // --- Achievement Checks ---
+      const checkAndComplete = (id: string, condition: boolean) => {
+        if (condition && !newState.achievements[id].isCompleted) {
+          newState.achievements[id] = { ...newState.achievements[id], isCompleted: true };
+        }
+      };
+
+      checkAndComplete('first_million', newState.money >= 1000000);
+      checkAndComplete('ship_1000_pallets', newState.totalPalletsShipped >= 1000);
+      checkAndComplete('max_lines', newState.productionLines.length >= MAX_PRODUCTION_LINES);
+      checkAndComplete('master_logistician', !!newState.vehicles.semitruck);
+      checkAndComplete('expert_certified', newState.certificationLevel >= 5);
+
 
       return newState;
     }
@@ -413,6 +440,16 @@ const gameReducer = (state: GameState, action: GameAction): GameState => {
         ...state,
         availableOrders: [...state.availableOrders, action.order]
       }
+    }
+    
+    case 'COMPLETE_ACHIEVEMENT': {
+      const { achievementId } = action;
+      if (state.achievements[achievementId] && !state.achievements[achievementId].isCompleted) {
+        const newAchievements = { ...state.achievements };
+        newAchievements[achievementId] = { ...newAchievements[achievementId], isCompleted: true };
+        return { ...state, achievements: newAchievements };
+      }
+      return state;
     }
 
     case 'HIRE_WORKER': {
@@ -596,6 +633,7 @@ export const GameStateProvider = ({ children }: { children: ReactNode }) => {
   const { toast } = useToast();
   const stateRef = useRef(state);
   stateRef.current = state;
+  const prevAchievementsRef = useRef(state.achievements);
 
   // Game Loop
   useEffect(() => {
@@ -608,8 +646,12 @@ export const GameStateProvider = ({ children }: { children: ReactNode }) => {
   
   // Effect to watch for completed shipments and show toast
   useEffect(() => {
-    const { activeShipments } = state;
-    const completedShipments = activeShipments.filter(s => Date.now() >= s.arrivalTime);
+    const previousShipments = stateRef.current.activeShipments;
+    const currentShipments = state.activeShipments;
+    
+    const completedShipments = previousShipments.filter(ps => 
+      !currentShipments.some(cs => cs.id === ps.id) && Date.now() >= ps.arrivalTime
+    );
 
     if (completedShipments.length > 0) {
       const totalEarnings = completedShipments.reduce((sum, s) => sum + s.totalValue, 0);
@@ -619,17 +661,35 @@ export const GameStateProvider = ({ children }: { children: ReactNode }) => {
         description: `You earned $${Math.floor(totalEarnings).toLocaleString()} for ${totalPallets} pallets.`,
       })
     }
-  // This effect should only run when activeShipments changes
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.activeShipments.length]);
+  }, [state.activeShipments, toast]);
+
+
+  // Effect to watch for completed achievements and show toast
+  useEffect(() => {
+    const currentAchievements = state.achievements;
+    const prevAchievements = prevAchievementsRef.current;
+
+    for (const id in currentAchievements) {
+      if (currentAchievements[id].isCompleted && !prevAchievements[id].isCompleted) {
+        toast({
+          title: "Achievement Unlocked!",
+          description: currentAchievements[id].name,
+        });
+      }
+    }
+
+    prevAchievementsRef.current = currentAchievements;
+  }, [state.achievements, toast]);
+
 
   // Effect for AI order generation
   useEffect(() => {
+    let isMounted = true;
     const generate = async () => {
       // Use the ref to get the latest state without adding them as dependencies
       const { money, productionLines, warehouseCapacity, availableOrders, pallets, rawMaterials, certificationLevel } = stateRef.current;
       
-      if (availableOrders.length >= 6) return;
+      if (availableOrders.length >= 6 || !isMounted) return;
 
       const totalStoredPallets = Object.values(pallets).reduce((sum, p) => sum + p.quantity, 0);
       const totalRawMaterialUnits = Object.values(rawMaterials).reduce((sum, m) => sum + (m?.quantity || 0), 0);
@@ -646,6 +706,8 @@ export const GameStateProvider = ({ children }: { children: ReactNode }) => {
       
       try {
         const newOrderData = await generateNewOrder(input);
+        if (!isMounted) return;
+
         const allOrderIds = [
             ...stateRef.current.availableOrders.map(o => o.id),
             ...stateRef.current.productionQueue.map(o => o.id),
@@ -662,17 +724,16 @@ export const GameStateProvider = ({ children }: { children: ReactNode }) => {
       }
     };
     
-    // Check if an order should be generated immediately
-    const lastOrderTime = stateRef.current.availableOrders[stateRef.current.availableOrders.length - 1]?.id || 0;
-    const timeSinceLastOrder = Date.now() - lastOrderTime; 
-
     if (state.availableOrders.length < 6) {
         generate(); 
     }
     
     const orderInterval = setInterval(generate, NEW_ORDER_INTERVAL);
 
-    return () => clearInterval(orderInterval);
+    return () => {
+      isMounted = false;
+      clearInterval(orderInterval);
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

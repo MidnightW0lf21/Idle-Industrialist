@@ -79,6 +79,13 @@ export interface Invoice {
   deliveryArrivalTime?: number; // timestamp
 }
 
+export interface Achievement {
+  id: string;
+  name: string;
+  description: string;
+  isCompleted: boolean;
+}
+
 export interface GameState {
   money: number;
   pallets: Record<string, StoredPallet>;
@@ -93,6 +100,8 @@ export interface GameState {
   activeShipments: Shipment[];
   invoices: Invoice[];
   certificationLevel: number;
+  achievements: Record<string, Achievement>;
+  totalPalletsShipped: number;
 }
 
 export type GameAction =
@@ -101,6 +110,7 @@ export type GameAction =
   | { type: 'PURCHASE_UPGRADE'; upgradeId: string }
   | { type: 'START_SHIPMENT'; vehicleId: string; palletsToShip: Record<string, number> }
   | { type: 'ADD_ORDER', order: Order }
+  | { type: 'COMPLETE_ACHIEVEMENT'; achievementId: string }
   | { type: 'HIRE_WORKER' }
   | { type: 'ASSIGN_WORKER'; workerId: number; lineId: number | null }
   | { type: 'UPGRADE_WORKER'; workerId: number; upgradeType: 'efficiency' | 'stamina' }

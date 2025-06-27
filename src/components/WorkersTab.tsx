@@ -5,8 +5,9 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { UserPlus, User, Briefcase, DollarSign } from 'lucide-react';
+import { UserPlus, User, Briefcase, DollarSign, Zap } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
+import { Progress } from '@/components/ui/progress';
 
 const WORKER_HIRE_COST = 500;
 
@@ -75,42 +76,48 @@ export default function WorkersTab() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    {assignedLine ? (
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2 text-sm text-primary">
-                          <Briefcase className="w-4 h-4"/>
-                          <p>Working on Line {assignedLine.id}</p>
+                    <div className="space-y-4">
+                       <div className="flex items-center gap-2">
+                          <Zap className="w-4 h-4 text-yellow-500" />
+                          <Progress value={worker.energy} className="h-2 [&>div]:bg-yellow-400" />
+                      </div>
+                      {assignedLine ? (
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2 text-sm text-primary">
+                            <Briefcase className="w-4 h-4"/>
+                            <p>Working on Line {assignedLine.id}</p>
+                          </div>
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => handleAssignWorker(worker.id, null)}
+                          >
+                            Unassign
+                          </Button>
                         </div>
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          onClick={() => handleAssignWorker(worker.id, null)}
-                        >
-                          Unassign
-                        </Button>
-                      </div>
-                    ) : (
-                      <div className="flex items-center justify-between">
-                         <p className="text-sm text-muted-foreground">Idle</p>
-                        <Select
-                          onValueChange={(lineId) => handleAssignWorker(worker.id, lineId)}
-                          disabled={idleLines.length === 0}
-                        >
-                          <SelectTrigger className="w-[180px]">
-                            <SelectValue placeholder="Assign to Line..." />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {idleLines.length > 0 ? idleLines.map(line => (
-                              <SelectItem key={line.id} value={String(line.id)}>
-                                Production Line {line.id}
-                              </SelectItem>
-                            )) : (
-                              <SelectItem value="none" disabled>No idle lines</SelectItem>
-                            )}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    )}
+                      ) : (
+                        <div className="flex items-center justify-between">
+                           <p className="text-sm text-muted-foreground">{worker.energy > 0 ? 'Idle' : 'Exhausted'}</p>
+                          <Select
+                            onValueChange={(lineId) => handleAssignWorker(worker.id, lineId)}
+                            disabled={idleLines.length === 0 || worker.energy <= 0}
+                          >
+                            <SelectTrigger className="w-[180px]">
+                              <SelectValue placeholder="Assign to Line..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {idleLines.length > 0 ? idleLines.map(line => (
+                                <SelectItem key={line.id} value={String(line.id)}>
+                                  Production Line {line.id}
+                                </SelectItem>
+                              )) : (
+                                <SelectItem value="none" disabled>No idle lines</SelectItem>
+                              )}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
+                    </div>
                   </CardContent>
                 </Card>
               );

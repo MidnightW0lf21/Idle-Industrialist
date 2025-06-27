@@ -11,6 +11,8 @@ export interface Worker {
   name: string;
   wage: number; // dollars per second
   assignedLineId: number | null;
+  energy: number; // 0-100
+  maxEnergy: number;
 }
 
 export interface ProductionLine {

@@ -18,8 +18,8 @@ const initialUpgrades: Record<string, Upgrade> = {
 };
 
 const initialWorkers: Worker[] = [
-    { id: 1, name: "Alice", wage: 1, assignedLineId: 1 },
-    { id: 2, name: "Bob", wage: 1, assignedLineId: null },
+    { id: 1, name: "Alice", wage: 1, assignedLineId: 1, energy: 100, maxEnergy: 100 },
+    { id: 2, name: "Bob", wage: 1, assignedLineId: null, energy: 100, maxEnergy: 100 },
 ];
 
 const NEW_ORDER_INTERVAL = 30000; // 30 seconds
@@ -45,12 +45,37 @@ const gameReducer = (state: GameState, action: GameAction): GameState => {
       let newState = { ...state };
       let palletsInWarehouse = Object.values(newState.pallets).reduce((sum, p) => sum + p.quantity, 0);
 
-      // Deduct wages
-      const totalWage = newState.workers.reduce((sum, worker) => sum + worker.wage, 0);
+      // Deduct wages only for assigned workers
+      const totalWage = newState.workers
+        .filter(worker => worker.assignedLineId !== null)
+        .reduce((sum, worker) => sum + worker.wage, 0);
       newState.money -= totalWage;
 
+      // Worker energy logic
+      const exhaustedWorkerIds = new Set<number>();
+      newState.workers = newState.workers.map(worker => {
+          if (worker.assignedLineId !== null) {
+              // Deplete energy if working
+              const newEnergy = worker.energy - 0.5;
+              if (newEnergy <= 0) {
+                  exhaustedWorkerIds.add(worker.id);
+                  return { ...worker, energy: 0, assignedLineId: null };
+              }
+              return { ...worker, energy: newEnergy };
+          } else {
+              // Regenerate energy if idle
+              const newEnergy = Math.min(worker.maxEnergy, worker.energy + 0.25);
+              return { ...worker, energy: newEnergy };
+          }
+      });
+      
       // Production Logic
       newState.productionLines = newState.productionLines.map(line => {
+        // Unassign exhausted worker
+        if (line.assignedWorkerId && exhaustedWorkerIds.has(line.assignedWorkerId)) {
+            line.assignedWorkerId = null;
+        }
+        
         // Line must have an order AND a worker to run
         if (line.orderId === null || line.assignedWorkerId === null) {
           return line;
@@ -192,6 +217,8 @@ const gameReducer = (state: GameState, action: GameAction): GameState => {
         name: availableNames[Math.floor(Math.random() * availableNames.length)],
         wage: 1.5,
         assignedLineId: null,
+        energy: 100,
+        maxEnergy: 100,
       };
 
       return {
@@ -205,7 +232,8 @@ const gameReducer = (state: GameState, action: GameAction): GameState => {
       const { workerId, lineId } = action;
       
       const workerToAssign = state.workers.find(w => w.id === workerId);
-      if (!workerToAssign) return state;
+      // Prevent assigning exhausted worker
+      if (!workerToAssign || workerToAssign.energy <= 0) return state;
 
       const newWorkers = state.workers.map(w => ({ ...w }));
       const newLines = state.productionLines.map(l => ({ ...l }));

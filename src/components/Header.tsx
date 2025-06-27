@@ -6,6 +6,7 @@ import { DollarSign, Factory, Layers } from 'lucide-react';
 
 export default function Header() {
   const { state } = useGameState();
+  const totalPallets = Object.values(state.pallets).reduce((sum, p) => sum + p.quantity, 0);
 
   return (
     <header className="bg-card border-b sticky top-0 z-10">
@@ -24,7 +25,7 @@ export default function Header() {
           <Card className="shadow-sm">
             <CardContent className="p-2 flex items-center gap-2">
               <Layers className="h-5 w-5 text-primary" />
-              <span className="font-semibold text-lg">{state.pallets}</span>
+              <span className="font-semibold text-lg">{totalPallets.toLocaleString()}</span>
             </CardContent>
           </Card>
         </div>

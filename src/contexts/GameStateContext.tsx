@@ -1,7 +1,8 @@
 "use client";
 
-import React, { createContext, useContext, useReducer, useEffect, ReactNode, useCallback } from 'react';
-import type { GameState, GameAction, Order, ProductionLine, Upgrade } from '@/types';
+import React, { createContext, useContext, useReducer, useEffect, ReactNode } from 'react';
+import type { GameState, GameAction, Order, ProductionLine, Upgrade, StoredPallet } from '@/types';
+import { generateNewOrder } from '@/ai/flows/order-generation-flow';
 
 const initialOrders: Order[] = [
   { id: 1, productName: "Standard Widgets", quantity: 10, reward: 150, timeToProduce: 10 },
@@ -16,57 +17,77 @@ const initialUpgrades: Record<string, Upgrade> = {
   'warehouse_1': { id: 'warehouse_1', name: "Warehouse Expansion", description: "Increase warehouse capacity by 100 pallets.", level: 1, cost: 750 },
 };
 
+const NEW_ORDER_INTERVAL = 30000; // 30 seconds
+
 const initialState: GameState = {
   money: 500,
-  pallets: 0,
+  pallets: {},
   warehouseCapacity: 100,
-  productionLines: [{ id: 1, orderId: null, productName: null, progress: 0, timeToProduce: 0, efficiency: 1 }],
+  productionLines: [{ id: 1, orderId: null, productName: null, progress: 0, timeToProduce: 0, efficiency: 1, quantity: 0, reward: 0 }],
   availableOrders: initialOrders,
   productionQueue: [],
-  isShipping: false,
   upgrades: initialUpgrades,
+  lastOrderTimestamp: Date.now(),
 };
 
 const gameReducer = (state: GameState, action: GameAction): GameState => {
   switch (action.type) {
     case 'TICK': {
       let newState = { ...state };
-      let newPallets = newState.pallets;
-
+      
+      // Production Logic
       newState.productionLines = newState.productionLines.map(line => {
         if (line.orderId !== null) {
           const progressIncrease = (100 / line.timeToProduce) * line.efficiency;
           const newProgress = line.progress + progressIncrease;
 
           if (newProgress >= 100) {
-            const finishedOrder = newState.productionQueue.find(o => o.id === line.orderId) || state.productionLines.find(pl => pl.orderId === line.orderId) && { productName: line.productName, quantity: 1 }; // Fallback
-            if(finishedOrder) {
-              newPallets = Math.min(newState.warehouseCapacity, newPallets + finishedOrder.quantity);
+            const productName = line.productName!;
+            const valuePerPallet = line.reward / line.quantity;
+            
+            const existingPallets = newState.pallets[productName] || { quantity: 0, value: valuePerPallet };
+            
+            const palletsInWarehouse = Object.values(newState.pallets).reduce((sum, p) => sum + p.quantity, 0);
+            const spaceAvailable = newState.warehouseCapacity - palletsInWarehouse;
+            const palletsToAdd = Math.min(line.quantity, spaceAvailable);
+
+            if (palletsToAdd > 0) {
+               newState.pallets[productName] = {
+                 quantity: existingPallets.quantity + palletsToAdd,
+                 value: valuePerPallet,
+               };
             }
-            return { ...line, orderId: null, productName: null, progress: 0 };
+            // Reset the line
+            return { ...line, orderId: null, productName: null, progress: 0, timeToProduce: 0, quantity: 0, reward: 0 };
           }
           return { ...line, progress: newProgress };
         }
         return line;
       });
 
-      newState.pallets = newPallets;
-      
-      // Auto-assign from queue if a line is free
-      const freeLine = newState.productionLines.find(l => l.orderId === null);
-      if (freeLine && newState.productionQueue.length > 0) {
+      // Auto-assign from queue if a line is free and warehouse has space
+      const freeLineIndex = newState.productionLines.findIndex(l => l.orderId === null);
+      if (freeLineIndex !== -1 && newState.productionQueue.length > 0) {
         const nextOrder = newState.productionQueue[0];
-        if (newState.pallets + nextOrder.quantity <= newState.warehouseCapacity) {
-          const lineIndex = newState.productionLines.findIndex(l => l.id === freeLine.id);
-          newState.productionLines[lineIndex] = {
-            ...freeLine,
+        const currentPallets = Object.values(newState.pallets).reduce((sum, p) => sum + p.quantity, 0);
+
+        if (currentPallets + nextOrder.quantity <= newState.warehouseCapacity) {
+          newState.productionLines[freeLineIndex] = {
+            ...newState.productionLines[freeLineIndex],
             orderId: nextOrder.id,
             productName: nextOrder.productName,
             timeToProduce: nextOrder.timeToProduce,
+            quantity: nextOrder.quantity,
+            reward: nextOrder.reward,
             progress: 0,
           };
           newState.productionQueue = newState.productionQueue.slice(1);
         }
+      }
+      
+      // Update timestamp for AI Order Generation
+      if (Date.now() - newState.lastOrderTimestamp > NEW_ORDER_INTERVAL) {
+        newState.lastOrderTimestamp = Date.now();
       }
 
       return newState;
@@ -82,15 +103,16 @@ const gameReducer = (state: GameState, action: GameAction): GameState => {
     }
 
     case 'SHIP_GOODS': {
-      if (state.isShipping || state.pallets === 0) return state;
-      const orderToShip = state.productionLines.find(line => line.progress >= 100);
-      const reward = state.availableOrders.find(o => o.id === orderToShip?.orderId)?.reward || 100;
+      if (Object.keys(state.pallets).length === 0) return state;
+      
+      const earnings = Object.values(state.pallets).reduce((sum, p) => {
+        return sum + (p.quantity * p.value);
+      }, 0);
 
       return {
         ...state,
-        money: state.money + (reward * state.pallets), // Simplified reward logic
-        pallets: 0,
-        isShipping: false, // simplified for now
+        money: state.money + earnings,
+        pallets: {},
       };
     }
     
@@ -111,7 +133,7 @@ const gameReducer = (state: GameState, action: GameAction): GameState => {
           break;
         case 'add_line_1':
           const newLineId = newState.productionLines.length + 1;
-          newState.productionLines.push({ id: newLineId, orderId: null, productName: null, progress: 0, timeToProduce: 0, efficiency: 1 });
+          newState.productionLines.push({ id: newLineId, orderId: null, productName: null, progress: 0, timeToProduce: 0, efficiency: 1, quantity: 0, reward: 0 });
           break;
         case 'warehouse_1':
           newState.warehouseCapacity += 100;
@@ -119,6 +141,13 @@ const gameReducer = (state: GameState, action: GameAction): GameState => {
       }
 
       return newState;
+    }
+
+    case 'ADD_ORDER': {
+      return {
+        ...state,
+        availableOrders: [...state.availableOrders, action.order]
+      }
     }
 
     default:
@@ -131,6 +160,7 @@ const GameStateContext = createContext<{ state: GameState; dispatch: React.Dispa
 export const GameStateProvider = ({ children }: { children: ReactNode }) => {
   const [state, dispatch] = useReducer(gameReducer, initialState);
 
+  // Game Loop
   useEffect(() => {
     const gameLoop = setInterval(() => {
       dispatch({ type: 'TICK' });
@@ -138,6 +168,39 @@ export const GameStateProvider = ({ children }: { children: ReactNode }) => {
 
     return () => clearInterval(gameLoop);
   }, []);
+
+  // Effect for AI order generation
+  const { money, productionLines, warehouseCapacity, availableOrders, pallets, lastOrderTimestamp } = state;
+  useEffect(() => {
+    // This function is defined inside useEffect to capture the latest state
+    const generate = async () => {
+      // Don't overwhelm the player, and don't generate if there are still initial orders
+      if (availableOrders.length >= 10 || availableOrders.some(o => o.id <= 4)) return;
+
+      const totalPallets = Object.values(pallets).reduce((sum, p) => sum + p.quantity, 0);
+      const warehouseUsage = (totalPallets / warehouseCapacity) * 100;
+      
+      const input = {
+          playerMoney: money,
+          productionCapacity: productionLines.length,
+          warehouseUsage: warehouseUsage,
+      };
+      
+      try {
+        const newOrderData = await generateNewOrder(input);
+        const newId = (Math.max(...availableOrders.map(o => o.id), 0) || 0) + 1;
+        
+        dispatch({
+            type: 'ADD_ORDER',
+            order: { ...newOrderData, id: newId }
+        });
+      } catch (e) {
+        console.error("Failed to generate new order:", e);
+      }
+    };
+    generate();
+    // Re-run this effect ONLY when lastOrderTimestamp changes
+  }, [lastOrderTimestamp]);
 
   return (
     <GameStateContext.Provider value={{ state, dispatch }}>

@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
-import { Package, DollarSign, Clock, ChevronsRight } from 'lucide-react';
+import { Package, DollarSign, Clock, ChevronsRight, Loader2 } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast"
 
 export default function OrdersTab() {
@@ -40,7 +40,12 @@ export default function OrdersTab() {
                   <Button onClick={() => handleAcceptOrder(order)} size="sm" className="w-full">Accept Order</Button>
                 </CardFooter>
               </Card>
-            )) : <p className="text-center text-muted-foreground p-4">No new orders available.</p>}
+            )) : (
+              <div className="text-center text-muted-foreground p-4 flex flex-col items-center justify-center h-full">
+                <Loader2 className="h-6 w-6 animate-spin mb-2" />
+                <p>Generating new orders...</p>
+              </div>
+            )}
           </div>
         </ScrollArea>
       </div>

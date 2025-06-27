@@ -13,6 +13,8 @@ export interface ProductionLine {
   progress: number; // 0-100
   timeToProduce: number;
   efficiency: number; // 1 = 100%
+  quantity: number;
+  reward: number;
 }
 
 export interface Upgrade {
@@ -23,19 +25,25 @@ export interface Upgrade {
   cost: number;
 }
 
+export interface StoredPallet {
+    quantity: number;
+    value: number; // price per pallet
+}
+
 export interface GameState {
   money: number;
-  pallets: number;
+  pallets: Record<string, StoredPallet>;
   warehouseCapacity: number;
   productionLines: ProductionLine[];
   availableOrders: Order[];
   productionQueue: Order[];
-  isShipping: boolean;
   upgrades: Record<string, Upgrade>;
+  lastOrderTimestamp: number;
 }
 
 export type GameAction =
   | { type: 'TICK' }
   | { type: 'ACCEPT_ORDER'; order: Order }
   | { type: 'PURCHASE_UPGRADE'; upgradeId: string }
-  | { type: 'SHIP_GOODS' };
+  | { type: 'SHIP_GOODS' }
+  | { type: 'ADD_ORDER', order: Order };

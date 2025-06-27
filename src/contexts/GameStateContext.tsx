@@ -1,6 +1,7 @@
+
 "use client";
 
-import React, { createContext, useContext, useReducer, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useReducer, useEffect, ReactNode, useRef } from 'react';
 import type { GameState, GameAction, Order, ProductionLine, Upgrade, StoredPallet, Worker, Vehicle, Shipment, Invoice } from '@/types';
 import { generateNewOrder } from '@/ai/flows/order-generation-flow';
 import { Truck, MoveHorizontal, Car } from 'lucide-react';
@@ -12,16 +13,16 @@ const initialOrders: Order[] = [
 ];
 
 export const AVAILABLE_RAW_MATERIALS: Record<string, { costPerUnit: number, timePerUnit: number }> = {
-  'Resistors': { costPerUnit: 0.1, timePerUnit: 2 },
-  'Capacitors': { costPerUnit: 0.2, timePerUnit: 2.8 },
-  'Transistors': { costPerUnit: 0.5, timePerUnit: 3.6 },
-  'LEDs': { costPerUnit: 0.3, timePerUnit: 2 },
-  'PCBs': { costPerUnit: 2, timePerUnit: 16 },
-  'Integrated Circuits': { costPerUnit: 5, timePerUnit: 32 },
-  'Diodes': { costPerUnit: 0.25, timePerUnit: 2.4 },
-  'Inductors': { costPerUnit: 0.7, timePerUnit: 4.8 },
-  'Quartz Crystals': { costPerUnit: 1.5, timePerUnit: 10 },
-  'Switches': { costPerUnit: 0.8, timePerUnit: 4.0 },
+  'Resistors': { costPerUnit: 0.1, timePerUnit: 5.6 },
+  'Capacitors': { costPerUnit: 0.2, timePerUnit: 5.6 },
+  'Transistors': { costPerUnit: 0.5, timePerUnit: 7.2 },
+  'LEDs': { costPerUnit: 0.3, timePerUnit: 5.6 },
+  'PCBs': { costPerUnit: 2, timePerUnit: 32 },
+  'Integrated Circuits': { costPerUnit: 5, timePerUnit: 64 },
+  'Diodes': { costPerUnit: 0.25, timePerUnit: 4.8 },
+  'Inductors': { costPerUnit: 0.7, timePerUnit: 9.6 },
+  'Quartz Crystals': { costPerUnit: 1.5, timePerUnit: 20 },
+  'Switches': { costPerUnit: 0.8, timePerUnit: 8.0 },
 };
 
 export const RAW_MATERIAL_UNITS_PER_PALLET_SPACE = 1000;
@@ -563,6 +564,7 @@ const GameStateContext = createContext<{ state: GameState; dispatch: React.Dispa
 export const GameStateProvider = ({ children }: { children: ReactNode }) => {
   const [state, dispatch] = useReducer(gameReducer, initialState);
   const { toast } = useToast();
+  const isInitialMount = useRef(true); // To prevent generation on first render
 
   // Game Loop
   useEffect(() => {
@@ -590,25 +592,38 @@ export const GameStateProvider = ({ children }: { children: ReactNode }) => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.activeShipments.length]);
 
-
   // Effect for AI order generation
-  const { money, productionLines, warehouseCapacity, availableOrders, pallets, lastOrderTimestamp } = state;
+  const stateRef = useRef(state);
+  stateRef.current = state;
+  const { lastOrderTimestamp } = state;
   useEffect(() => {
+    // Prevent generation on the very first render.
+    if (isInitialMount.current) {
+        isInitialMount.current = false;
+        return;
+    }
+
     const generate = async () => {
+      // Use the ref to get the latest state without adding them as dependencies
+      const { money, productionLines, warehouseCapacity, availableOrders, pallets, rawMaterials, productionQueue } = stateRef.current;
+      
       if (availableOrders.length >= 10) return;
 
-      const totalPallets = Object.values(pallets).reduce((sum, p) => sum + p.quantity, 0);
-      const warehouseUsage = (totalPallets / warehouseCapacity) * 100;
+      const totalStoredPallets = Object.values(pallets).reduce((sum, p) => sum + p.quantity, 0);
+      const totalRawMaterialUnits = Object.values(rawMaterials).reduce((sum, m) => sum + (m?.quantity || 0), 0);
+      const rawMaterialSpaceUsed = totalRawMaterialUnits / RAW_MATERIAL_UNITS_PER_PALLET_SPACE;
+      const totalSpaceUsed = totalStoredPallets + rawMaterialSpaceUsed;
+      const warehouseUsage = (totalSpaceUsed / warehouseCapacity) * 100;
       
       const input = {
           playerMoney: money,
           productionCapacity: productionLines.length,
-          warehouseUsage: warehouseUsage,
+          warehouseUsage: isNaN(warehouseUsage) ? 0 : warehouseUsage,
       };
       
       try {
         const newOrderData = await generateNewOrder(input);
-        const newId = (Math.max(...availableOrders.map(o => o.id).concat(state.productionQueue.map(o=>o.id)), 0) || 0) + 1;
+        const newId = (Math.max(...availableOrders.map(o => o.id).concat(productionQueue.map(o=>o.id)), 0) || 0) + 1;
         
         dispatch({
             type: 'ADD_ORDER',
@@ -618,11 +633,8 @@ export const GameStateProvider = ({ children }: { children: ReactNode }) => {
         console.error("Failed to generate new order:", e);
       }
     };
-
-    // Only run if the last generation was more than NEW_ORDER_INTERVAL ago
-    if (Date.now() - lastOrderTimestamp > NEW_ORDER_INTERVAL) {
-        generate();
-    }
+    
+    generate();
   }, [lastOrderTimestamp]);
 
   return (

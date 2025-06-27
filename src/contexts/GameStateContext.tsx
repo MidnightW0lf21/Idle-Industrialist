@@ -12,12 +12,12 @@ const initialOrders: Order[] = [
 ];
 
 export const AVAILABLE_RAW_MATERIALS: Record<string, { costPerUnit: number, timePerUnit: number }> = {
-  'Resistors': { costPerUnit: 0.1, timePerUnit: 0.1 },
-  'Capacitors': { costPerUnit: 0.2, timePerUnit: 0.15 },
-  'Transistors': { costPerUnit: 0.5, timePerUnit: 0.2 },
-  'LEDs': { costPerUnit: 0.3, timePerUnit: 0.1 },
-  'PCBs': { costPerUnit: 2, timePerUnit: 1 },
-  'Integrated Circuits': { costPerUnit: 5, timePerUnit: 2 },
+  'Resistors': { costPerUnit: 0.1, timePerUnit: 0.3 },
+  'Capacitors': { costPerUnit: 0.2, timePerUnit: 0.45 },
+  'Transistors': { costPerUnit: 0.5, timePerUnit: 0.6 },
+  'LEDs': { costPerUnit: 0.3, timePerUnit: 0.3 },
+  'PCBs': { costPerUnit: 2, timePerUnit: 3 },
+  'Integrated Circuits': { costPerUnit: 5, timePerUnit: 6 },
 };
 
 const ALL_VEHICLES: Record<string, Vehicle> = {

@@ -7,7 +7,8 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Package, DollarSign, Clock, ChevronsRight, Loader2, Wrench } from 'lucide-react';
-import { useToast } from "@/hooks/use-toast"
+import { useToast } from "@/hooks/use-toast";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 export default function OrdersTab() {
   const { state, dispatch } = useGameState();
@@ -59,14 +60,28 @@ export default function OrdersTab() {
       <Separator />
       <div>
         <h3 className="text-lg font-semibold mb-2 font-headline">Production Queue</h3>
-        <div className="space-y-2">
-          {state.productionQueue.length > 0 ? state.productionQueue.map((order, index) => (
-            <div key={order.id} className="flex items-center justify-between p-2 rounded-md bg-secondary/30">
-              <span className="font-medium text-sm flex items-center gap-2"><ChevronsRight className="w-4 h-4 text-primary"/>{order.productName}</span>
-              <span className="text-xs text-muted-foreground">Qty: {order.quantity}</span>
-            </div>
-          )) : <p className="text-center text-muted-foreground p-4">Queue is empty.</p>}
-        </div>
+        <TooltipProvider delayDuration={100}>
+          <div className="space-y-2">
+            {state.productionQueue.length > 0 ? state.productionQueue.map((order) => (
+              <Tooltip key={order.id}>
+                <TooltipTrigger asChild>
+                  <div className="flex items-center justify-between p-2 rounded-md bg-secondary/30 w-full cursor-default">
+                    <span className="font-medium text-sm flex items-center gap-2 truncate"><ChevronsRight className="w-4 h-4 text-primary"/>{order.productName}</span>
+                    <span className="text-xs text-muted-foreground">Qty: {order.quantity}</span>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p className="font-semibold mb-1">Required Materials:</p>
+                  <ul className="list-disc list-inside text-xs space-y-1">
+                    {Object.entries(order.materialRequirements).map(([mat, qty]) => (
+                        <li key={mat}>{qty}x {mat} / pallet</li>
+                    ))}
+                  </ul>
+                </TooltipContent>
+              </Tooltip>
+            )) : <p className="text-center text-muted-foreground p-4">Queue is empty.</p>}
+          </div>
+        </TooltipProvider>
       </div>
     </div>
   );

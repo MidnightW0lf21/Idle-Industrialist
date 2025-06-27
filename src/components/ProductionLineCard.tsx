@@ -6,7 +6,8 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Progress } from '@/components/ui/progress';
 import { Cog, Clock, Package, User, ArrowUpCircle, Zap, AlertTriangle } from 'lucide-react';
 import { Button } from './ui/button';
-import { useToast } from "@/hooks/use-toast"
+import { useToast } from "@/hooks/use-toast";
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface ProductionLineCardProps {
   line: ProductionLine;
@@ -85,7 +86,21 @@ export default function ProductionLineCard({ line }: ProductionLineCardProps) {
       <CardContent className="flex-grow pt-4">
         {line.orderId && line.productName ? (
           <div className="space-y-2">
-            <p className="font-semibold truncate" title={line.productName}>{line.productName}</p>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <p className="font-semibold truncate cursor-default" title={line.productName}>{line.productName}</p>
+              </TooltipTrigger>
+              {line.materialRequirements && Object.keys(line.materialRequirements).length > 0 && (
+                <TooltipContent>
+                  <p className="font-semibold mb-1">Required Materials:</p>
+                  <ul className="list-disc list-inside text-xs space-y-1">
+                    {Object.entries(line.materialRequirements).map(([mat, qty]) => (
+                        <li key={mat}>{qty}x {mat} / pallet</li>
+                    ))}
+                  </ul>
+                </TooltipContent>
+              )}
+            </Tooltip>
             <Progress value={line.progress} className="w-full transition-all duration-1000 ease-linear" />
             <div className="flex justify-between items-center text-sm text-muted-foreground pt-1">
                <div className="flex items-center gap-1.5">

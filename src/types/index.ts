@@ -28,6 +28,7 @@ export interface ProductionLine {
   progress: number; // 0-100
   timeToProduce: number;
   efficiency: number; // 1 = 100%
+  efficiencyLevel: number;
   quantity: number;
   reward: number;
   completedQuantity: number;
@@ -87,4 +88,5 @@ export type GameAction =
   | { type: 'ADD_ORDER', order: Order }
   | { type: 'HIRE_WORKER' }
   | { type: 'ASSIGN_WORKER'; workerId: number; lineId: number | null }
-  | { type: 'UPGRADE_WORKER'; workerId: number; upgradeType: 'efficiency' | 'stamina' };
+  | { type: 'UPGRADE_WORKER'; workerId: number; upgradeType: 'efficiency' | 'stamina' }
+  | { type: 'UPGRADE_PRODUCTION_LINE'; lineId: number };

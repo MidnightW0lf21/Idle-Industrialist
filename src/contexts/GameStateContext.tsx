@@ -20,9 +20,8 @@ const ALL_VEHICLES: Record<string, Vehicle> = {
 };
 
 const initialUpgrades: Record<string, Upgrade> = {
-  'efficiency_1': { id: 'efficiency_1', name: "Improved Lubricants", description: "Increase all machine efficiency by 10%.", level: 1, cost: 500 },
-  'add_line_1': { id: 'add_line_1', name: "New Production Line", description: "Build a second production line.", level: 1, cost: 1000 },
-  'warehouse_1': { id: 'warehouse_1', name: "Warehouse Expansion", description: "Increase warehouse capacity by 100 pallets.", level: 1, cost: 750 },
+  'add_line': { id: 'add_line', name: "New Production Line", description: "Build an additional production line.", level: 1, cost: 1000 },
+  'warehouse_expansion': { id: 'warehouse_expansion', name: "Warehouse Expansion", description: "Increase warehouse capacity by 150 pallets.", level: 1, cost: 750 },
   'unlock_pickup': { id: 'unlock_pickup', name: "Buy Pickup Truck", description: "Capacity: 10 pallets, faster delivery.", level: 1, cost: 1500 },
   'unlock_van': { id: 'unlock_van', name: "Buy Cargo Van", description: "Capacity: 25 pallets.", level: 1, cost: 4000 },
   'unlock_boxtruck': { id: 'unlock_boxtruck', name: "Buy Box Truck", description: "Capacity: 50 pallets.", level: 1, cost: 10000 },
@@ -37,12 +36,18 @@ const NEW_ORDER_INTERVAL = 30000; // 30 seconds
 const WORKER_HIRE_COST = 500;
 const POSSIBLE_WORKER_NAMES = ["Charlie", "Dana", "Eli", "Frankie", "Gabi", "Harper", "Izzy", "Jordan", "Kai", "Leo", "Bob"];
 
+const LINE_EFFICIENCY_UPGRADE_BASE_COST = 400;
+const LINE_EFFICIENCY_CAP = 5;
+const MAX_PRODUCTION_LINES = 12;
+const MAX_WAREHOUSE_CAPACITY = 1500;
+const WAREHOUSE_EXPANSION_AMOUNT = 150;
+
 
 const initialState: GameState = {
   money: 500,
   pallets: {},
   warehouseCapacity: 20,
-  productionLines: [{ id: 1, orderId: null, productName: null, progress: 0, timeToProduce: 0, efficiency: 1, quantity: 0, reward: 0, completedQuantity: 0, assignedWorkerId: null }],
+  productionLines: [{ id: 1, orderId: null, productName: null, progress: 0, timeToProduce: 0, efficiency: 1, efficiencyLevel: 1, quantity: 0, reward: 0, completedQuantity: 0, assignedWorkerId: null }],
   availableOrders: initialOrders,
   productionQueue: [],
   upgrades: initialUpgrades,
@@ -255,31 +260,61 @@ const gameReducer = (state: GameState, action: GameAction): GameState => {
       
       let newState = { ...state, money: state.money - upgrade.cost };
       const newUpgrades = { ...newState.upgrades };
-      delete newUpgrades[action.upgradeId];
-      newState.upgrades = newUpgrades;
       
       switch(action.upgradeId) {
-        case 'efficiency_1':
-          newState.productionLines = newState.productionLines.map(l => ({...l, efficiency: l.efficiency * 1.1}));
-          break;
-        case 'add_line_1':
+        case 'add_line': {
+          if (newState.productionLines.length >= MAX_PRODUCTION_LINES) return state;
           const newLineId = newState.productionLines.length + 1;
-          newState.productionLines.push({ id: newLineId, orderId: null, productName: null, progress: 0, timeToProduce: 0, efficiency: 1, quantity: 0, reward: 0, completedQuantity: 0, assignedWorkerId: null });
+          newState.productionLines.push({ id: newLineId, orderId: null, productName: null, progress: 0, timeToProduce: 0, efficiency: 1, efficiencyLevel: 1, quantity: 0, reward: 0, completedQuantity: 0, assignedWorkerId: null });
+          
+          if (newState.productionLines.length >= MAX_PRODUCTION_LINES) {
+            delete newUpgrades['add_line'];
+          } else {
+            newUpgrades['add_line'] = {
+              ...upgrade,
+              cost: Math.floor(upgrade.cost * 2.5),
+              level: upgrade.level + 1,
+            };
+          }
+          newState.upgrades = newUpgrades;
           break;
-        case 'warehouse_1':
-          newState.warehouseCapacity += 100;
+        }
+        case 'warehouse_expansion': {
+          if (newState.warehouseCapacity >= MAX_WAREHOUSE_CAPACITY) return state;
+          const newCapacity = newState.warehouseCapacity + WAREHOUSE_EXPANSION_AMOUNT;
+          newState.warehouseCapacity = Math.min(newCapacity, MAX_WAREHOUSE_CAPACITY);
+
+          if (newCapacity >= MAX_WAREHOUSE_CAPACITY) {
+            delete newUpgrades['warehouse_expansion'];
+          } else {
+            newUpgrades['warehouse_expansion'] = {
+              ...upgrade,
+              cost: Math.floor(upgrade.cost * 2),
+              level: upgrade.level + 1,
+            };
+          }
+          newState.upgrades = newUpgrades;
           break;
+        }
         case 'unlock_pickup':
           newState.vehicles = { ...newState.vehicles, pickup: ALL_VEHICLES.pickup };
+          delete newUpgrades['unlock_pickup'];
+          newState.upgrades = newUpgrades;
           break;
         case 'unlock_van':
           newState.vehicles = { ...newState.vehicles, van: ALL_VEHICLES.van };
+          delete newUpgrades['unlock_van'];
+          newState.upgrades = newUpgrades;
           break;
         case 'unlock_boxtruck':
           newState.vehicles = { ...newState.vehicles, boxtruck: ALL_VEHICLES.boxtruck };
+          delete newUpgrades['unlock_boxtruck'];
+          newState.upgrades = newUpgrades;
           break;
         case 'unlock_semitruck':
           newState.vehicles = { ...newState.vehicles, semitruck: ALL_VEHICLES.semitruck };
+          delete newUpgrades['unlock_semitruck'];
+          newState.upgrades = newUpgrades;
           break;
       }
 
@@ -394,6 +429,27 @@ const gameReducer = (state: GameState, action: GameAction): GameState => {
         }
       }
       return state;
+    }
+
+    case 'UPGRADE_PRODUCTION_LINE': {
+        const { lineId } = action;
+        const lineIndex = state.productionLines.findIndex(l => l.id === lineId);
+        if (lineIndex === -1) return state;
+
+        const line = state.productionLines[lineIndex];
+        if (line.efficiency >= LINE_EFFICIENCY_CAP) return state;
+
+        const cost = Math.floor(LINE_EFFICIENCY_UPGRADE_BASE_COST * Math.pow(line.efficiencyLevel, 1.8));
+        if (state.money < cost) return state;
+        
+        const newLines = [...state.productionLines];
+        newLines[lineIndex] = {
+            ...line,
+            efficiency: line.efficiency + 0.1,
+            efficiencyLevel: line.efficiencyLevel + 1,
+        };
+
+        return { ...state, money: state.money - cost, productionLines: newLines };
     }
 
 

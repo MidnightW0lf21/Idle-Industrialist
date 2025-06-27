@@ -4,7 +4,7 @@ import type { ProductionLine } from '@/types';
 import { useGameState } from '@/contexts/GameStateContext';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { Cog, Clock, Package, User, ArrowUpCircle } from 'lucide-react';
+import { Cog, Clock, Package, User, ArrowUpCircle, Zap } from 'lucide-react';
 import { Button } from './ui/button';
 import { useToast } from "@/hooks/use-toast"
 
@@ -56,15 +56,23 @@ export default function ProductionLineCard({ line }: ProductionLineCardProps) {
   return (
     <Card className="bg-secondary/50 flex flex-col">
       <CardHeader>
-        <CardTitle className="flex items-center justify-between">
+        <CardTitle className="flex items-start justify-between">
           <span className="flex items-center gap-2">
             <Cog className={`w-5 h-5 ${line.orderId && line.assignedWorkerId ? 'animate-spin' : ''}`} style={{ animationDuration: `${Math.max(0.5, 5 / effectiveEfficiency)}s` }}/>
             Production Line {line.id}
           </span>
-           <span className="flex items-center gap-1.5 text-sm font-normal text-muted-foreground">
-              <User className="w-3 h-3"/>
-              {worker ? worker.name : 'Unassigned'}
-            </span>
+           <div className="w-28 text-right space-y-1">
+             <span className="flex items-center justify-end gap-1.5 text-sm font-normal text-muted-foreground">
+                <User className="w-3 h-3"/>
+                {worker ? worker.name : 'Unassigned'}
+              </span>
+              {worker && (
+                  <div className="flex items-center justify-end gap-1.5">
+                    <Zap className="w-3 h-3 text-yellow-500" />
+                    <Progress value={worker.energy} className="h-1.5 w-20 [&>div]:bg-yellow-400" />
+                  </div>
+              )}
+           </div>
         </CardTitle>
       </CardHeader>
       <CardContent className="flex-grow pt-4">

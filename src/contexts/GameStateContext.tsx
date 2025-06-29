@@ -49,6 +49,15 @@ const initialUpgrades: Record<string, Upgrade> = {
 };
 
 const initialAchievements: Record<string, Achievement> = {
+  'first_pallet': { id: 'first_pallet', name: "Getting Started", description: "Ship your very first pallet.", isCompleted: false },
+  'first_contract': { id: 'first_contract', name: "First Big Deal", description: "Complete your first special contract.", isCompleted: false },
+  'team_builder': { id: 'team_builder', name: "Team Builder", description: "Hire a team of at least 5 workers.", isCompleted: false },
+  'power_surplus': { id: 'power_surplus', name: "Power Surplus", description: "Expand your power capacity to over 50 MW.", isCompleted: false },
+  'logistics_expert': { id: 'logistics_expert', name: "Logistics Expert", description: "Own at least 3 different types of vehicles.", isCompleted: false },
+  'crisis_averted': { id: 'crisis_averted', name: "Crisis Averted", description: "Successfully resolve a worker strike by paying their demands.", isCompleted: false },
+  'master_researcher': { id: 'master_researcher', name: "Master Researcher", description: "Complete 5 different research projects.", isCompleted: false },
+  'reputation_mogul': { id: 'reputation_mogul', name: "Reputation Mogul", description: "Achieve a reputation score of 100.", isCompleted: false },
+  'billionaire': { id: 'billionaire', name: "Billionaire", description: "Accumulate a total of $1,000,000,000.", isCompleted: false },
   'first_million': { id: 'first_million', name: "Millionaire", description: "Earn your first $1,000,000.", isCompleted: false },
   'ship_1000_pallets': { id: 'ship_1000_pallets', name: "Bulk Shipper", description: "Ship 1,000 total pallets.", isCompleted: false },
   'max_lines': { id: 'max_lines', name: "Full Capacity", description: "Build all 12 production lines.", isCompleted: false },
@@ -109,6 +118,8 @@ const initialState: GameState = {
   reputation: 0,
   achievements: initialAchievements,
   totalPalletsShipped: 0,
+  totalContractsCompleted: 0,
+  strikesResolved: 0,
   activeEvent: null,
   research: initialResearch,
   globalEfficiencyModifier: 1.0,
@@ -272,8 +283,11 @@ const gameReducer = (state: GameState, action: GameAction): GameState => {
           if (currentLine.progress >= 100 && currentLine.completedQuantity >= currentLine.quantity) {
             const completedOrder = newState.activeOrders.find(o => o.id === currentLine.orderId);
               if (completedOrder) {
-                  if (completedOrder.isContract && completedOrder.reputationReward) {
-                      newState.reputation = (newState.reputation || 0) + completedOrder.reputationReward;
+                  if (completedOrder.isContract) {
+                      newState.totalContractsCompleted = (newState.totalContractsCompleted || 0) + 1;
+                      if (completedOrder.reputationReward) {
+                          newState.reputation = (newState.reputation || 0) + completedOrder.reputationReward;
+                      }
                   }
                   newState.activeOrders = newState.activeOrders.filter(o => o.id !== currentLine.orderId);
               }
@@ -323,18 +337,26 @@ const gameReducer = (state: GameState, action: GameAction): GameState => {
 
       // --- Achievement Checks ---
       const checkAndComplete = (id: string, condition: boolean) => {
-        if (condition && !newState.achievements[id].isCompleted) {
+        if (newState.achievements[id] && condition && !newState.achievements[id].isCompleted) {
           newState.achievements[id] = { ...newState.achievements[id], isCompleted: true };
         }
       };
 
       checkAndComplete('first_million', newState.money >= 1000000);
+      checkAndComplete('billionaire', newState.money >= 1000000000);
       checkAndComplete('ship_1000_pallets', newState.totalPalletsShipped >= 1000);
+      checkAndComplete('first_pallet', newState.totalPalletsShipped >= 1);
       checkAndComplete('max_lines', newState.productionLines.length >= MAX_PRODUCTION_LINES);
       checkAndComplete('master_logistician', !!newState.vehicles.semitruck);
+      checkAndComplete('logistics_expert', Object.keys(newState.vehicles).length >= 3);
       checkAndComplete('expert_certified', newState.certificationLevel >= 5);
       checkAndComplete('innovator', Object.values(newState.research.projects).some(p => p.status === 'completed'));
-
+      checkAndComplete('master_researcher', Object.values(newState.research.projects).filter(p => p.status === 'completed').length >= 5);
+      checkAndComplete('first_contract', newState.totalContractsCompleted >= 1);
+      checkAndComplete('team_builder', newState.workers.length >= 5);
+      checkAndComplete('power_surplus', newState.powerCapacity >= 50);
+      checkAndComplete('crisis_averted', newState.strikesResolved >= 1);
+      checkAndComplete('reputation_mogul', newState.reputation >= 100);
 
       return newState;
     }
@@ -731,7 +753,8 @@ const gameReducer = (state: GameState, action: GameAction): GameState => {
           return {
               ...state,
               money: state.money - state.activeEvent.strikeDemand!,
-              activeEvent: { ...state.activeEvent, isResolved: true }
+              activeEvent: { ...state.activeEvent, isResolved: true },
+              strikesResolved: (state.strikesResolved || 0) + 1,
           }
       }
       return state;

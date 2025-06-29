@@ -144,6 +144,8 @@ export interface GameState {
   reputation: number;
   achievements: Record<string, Achievement>;
   totalPalletsShipped: number;
+  totalContractsCompleted: number;
+  strikesResolved: number;
   activeEvent: SpecialEvent | null;
   research: ResearchState;
   globalEfficiencyModifier: number;

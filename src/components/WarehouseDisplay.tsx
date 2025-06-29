@@ -142,7 +142,7 @@ export default function WarehouseDisplay() {
         {/* SHIPMENT CREATION */}
         <div className="space-y-4">
           <h3 className="font-semibold font-headline">Create Shipment</h3>
-          {demandSurgeEvent && (
+          {isClient && demandSurgeEvent && (
               <div className="flex items-center gap-2 text-sm p-2 rounded-md bg-primary/10 text-primary">
                 <TrendingUp className="h-5 w-5" />
                 <p className="font-medium">{demandSurgeEvent.name}: Demand for {demandSurgeEvent.targetItem} is x{demandSurgeEvent.priceMultiplier?.toFixed(1)}!</p>

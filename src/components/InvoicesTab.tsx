@@ -101,13 +101,13 @@ export default function InvoicesTab() {
           <CardDescription>Order shipments of raw materials to keep your factory running.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {priceChangeEvent && (
+          {isClient && priceChangeEvent && (
              <div className="flex items-center gap-2 text-sm p-2 rounded-md bg-destructive/10 text-destructive">
               <TrendingUp className="h-5 w-5" />
               <p className="font-medium">{priceChangeEvent.name}: {priceChangeEvent.targetItem} prices are x{priceChangeEvent.priceMultiplier?.toFixed(1)}!</p>
             </div>
           )}
-           {deliveryDelayEvent && (
+           {isClient && deliveryDelayEvent && (
              <div className="flex items-center gap-2 text-sm p-2 rounded-md bg-destructive/10 text-destructive">
               <AlertTriangle className="h-5 w-5" />
               <p className="font-medium">{deliveryDelayEvent.name}: All deliveries delayed by {formatTime(deliveryDelayEvent.delayTime || 0)}!</p>

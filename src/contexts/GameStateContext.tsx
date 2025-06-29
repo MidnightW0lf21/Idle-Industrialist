@@ -66,6 +66,9 @@ const initialResearch: ResearchState = {
   projects: {
     'basic_automation': { id: 'basic_automation', name: "Basic Automation", description: "Implement basic automation for a 5% factory-wide efficiency boost.", cost: 10000, timeToComplete: 120, progress: 0, status: 'available', unlock: { type: 'GLOBAL_EFFICIENCY_MODIFIER', value: 0.05 } },
     'improved_logistics': { id: 'improved_logistics', name: "Improved Logistics", description: "Unlock the Cargo Van for purchase.", cost: 2500, timeToComplete: 60, progress: 0, status: 'available', unlock: { type: 'UNLOCK_UPGRADE', upgradeId: 'unlock_van' } },
+    'advanced_logistics': { id: 'advanced_logistics', name: "Advanced Logistics", description: "Develop advanced routing algorithms to unlock the Box Truck for purchase.", cost: 7500, timeToComplete: 180, progress: 0, status: 'available', unlock: { type: 'UNLOCK_UPGRADE', upgradeId: 'unlock_boxtruck' } },
+    'global_supply_chain': { id: 'global_supply_chain', name: "Global Supply Chain", description: "Master global logistics to unlock the powerful Semi-Truck for purchase.", cost: 20000, timeToComplete: 300, progress: 0, status: 'available', unlock: { type: 'UNLOCK_UPGRADE', upgradeId: 'unlock_semitruck' } },
+    'advanced_automation': { id: 'advanced_automation', name: "Advanced Automation", description: "Further enhance automation for another 10% factory-wide efficiency boost.", cost: 50000, timeToComplete: 600, progress: 0, status: 'available', unlock: { type: 'GLOBAL_EFFICIENCY_MODIFIER', value: 0.10 } },
   },
   currentProjectId: null,
 };
@@ -765,16 +768,18 @@ const gameReducer = (state: GameState, action: GameAction): GameState => {
         case 'GLOBAL_EFFICIENCY_MODIFIER':
           newState.globalEfficiencyModifier += project.unlock.value;
           break;
-        case 'UNLOCK_UPGRADE':
+        case 'UNLOCK_UPGRADE': {
           const newUpgrades = { ...newState.upgrades };
           if (project.unlock.upgradeId === 'unlock_van') {
             newUpgrades['unlock_van'] = { id: 'unlock_van', name: "Buy Cargo Van", description: "Capacity: 25 pallets.", level: 1, cost: 4000 };
-          }
-           if (project.unlock.upgradeId === 'unlock_boxtruck') {
+          } else if (project.unlock.upgradeId === 'unlock_boxtruck') {
             newUpgrades['unlock_boxtruck'] = { id: 'unlock_boxtruck', name: "Buy Box Truck", description: "Capacity: 50 pallets.", level: 1, cost: 10000 };
+          } else if (project.unlock.upgradeId === 'unlock_semitruck') {
+            newUpgrades['unlock_semitruck'] = { id: 'unlock_semitruck', name: "Buy Semi-Truck", description: "Capacity: 200 pallets.", level: 1, cost: 35000 };
           }
           newState.upgrades = newUpgrades;
           break;
+        }
       }
       
       return newState;
@@ -1007,3 +1012,5 @@ export const useGameState = () => {
   }
   return context;
 };
+
+    

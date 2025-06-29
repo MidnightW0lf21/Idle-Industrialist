@@ -104,6 +104,26 @@ export interface SpecialEvent {
   isResolved?: boolean; // For strikes
 }
 
+export interface ResearchProject {
+    id: string;
+    name: string;
+    description: string;
+    cost: number;
+    timeToComplete: number; // seconds
+    progress: number; // 0-100
+    status: 'available' | 'in_progress' | 'completed';
+    unlock: {
+        type: 'GLOBAL_EFFICIENCY_MODIFIER' | 'UNLOCK_UPGRADE';
+        value?: any;
+        upgradeId?: string;
+    }
+}
+
+export interface ResearchState {
+    projects: Record<string, ResearchProject>;
+    currentProjectId: string | null;
+}
+
 export interface GameState {
   money: number;
   pallets: Record<string, StoredPallet>;
@@ -125,6 +145,8 @@ export interface GameState {
   achievements: Record<string, Achievement>;
   totalPalletsShipped: number;
   activeEvent: SpecialEvent | null;
+  research: ResearchState;
+  globalEfficiencyModifier: number;
 }
 
 export type GameAction =
@@ -142,4 +164,6 @@ export type GameAction =
   | { type: 'PAY_INVOICE'; invoiceId: number }
   | { type: 'TRIGGER_EVENT'; event: SpecialEvent }
   | { type: 'CLEAR_EVENT' }
-  | { type: 'RESOLVE_STRIKE' };
+  | { type: 'RESOLVE_STRIKE' }
+  | { type: 'START_RESEARCH'; projectId: string }
+  | { type: 'COMPLETE_RESEARCH'; projectId: string };

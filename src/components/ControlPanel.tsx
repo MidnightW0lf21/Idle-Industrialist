@@ -9,9 +9,9 @@ import WorkersTab from './WorkersTab';
 import InvoicesTab from './InvoicesTab';
 import AchievementsTab from './AchievementsTab';
 import EventsTab from './EventsTab';
-import { ClipboardList, ArrowUpCircle, Users, FileText, Award, Megaphone } from 'lucide-react';
+import ResearchTab from './ResearchTab';
+import { ClipboardList, ArrowUpCircle, Users, FileText, Award, Megaphone, FlaskConical } from 'lucide-react';
 import { useGameState } from '@/contexts/GameStateContext';
-import { cn } from '@/lib/utils';
 
 export default function ControlPanel() {
   const { state } = useGameState();
@@ -22,7 +22,7 @@ export default function ControlPanel() {
       <CardContent className="p-0">
         <Tabs defaultValue="orders" className="w-full">
           <TooltipProvider delayDuration={100}>
-            <TabsList className="grid w-full grid-cols-6 rounded-t-lg rounded-b-none">
+            <TabsList className="grid w-full grid-cols-7 rounded-t-lg rounded-b-none">
               <Tooltip>
                 <TooltipTrigger asChild>
                   <TabsTrigger value="orders">
@@ -60,6 +60,17 @@ export default function ControlPanel() {
                 </TooltipTrigger>
                 <TooltipContent>
                   <p>Events</p>
+                </TooltipContent>
+              </Tooltip>
+               <Tooltip>
+                <TooltipTrigger asChild>
+                  <TabsTrigger value="research">
+                    <FlaskConical className="h-5 w-5" />
+                    <span className="sr-only">Research</span>
+                  </TabsTrigger>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>R&amp;D</p>
                 </TooltipContent>
               </Tooltip>
               <Tooltip>
@@ -106,6 +117,9 @@ export default function ControlPanel() {
             </TabsContent>
             <TabsContent value="events">
               <EventsTab />
+            </TabsContent>
+             <TabsContent value="research">
+              <ResearchTab />
             </TabsContent>
             <TabsContent value="upgrades">
               <UpgradesTab />

@@ -5,6 +5,7 @@ import { useGameState } from '@/contexts/GameStateContext';
 import { Card, CardContent } from '@/components/ui/card';
 import { DollarSign, Factory, Layers, Sun, Moon, Star, Zap } from 'lucide-react';
 import { Button } from './ui/button';
+import NewsTicker from './NewsTicker';
 
 export default function Header() {
   const { state } = useGameState();
@@ -86,6 +87,7 @@ export default function Header() {
 
         </div>
       </div>
+      <NewsTicker />
     </header>
   );
 }

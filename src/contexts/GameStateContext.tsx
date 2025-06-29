@@ -2,7 +2,7 @@
 "use client";
 
 import React, { createContext, useContext, useReducer, useEffect, ReactNode, useRef } from 'react';
-import type { GameState, GameAction, Order, ProductionLine, Upgrade, StoredPallet, Worker, Vehicle, Shipment, Invoice, Achievement, SpecialEvent } from '@/types';
+import type { GameState, GameAction, Order, ProductionLine, Upgrade, StoredPallet, Worker, Vehicle, Shipment, Invoice, Achievement, SpecialEvent, ResearchState } from '@/types';
 import { generateNewOrder } from '@/ai/flows/order-generation-flow';
 import { generateSpecialEvent } from '@/ai/flows/special-event-flow';
 import { Truck, MoveHorizontal, Car } from 'lucide-react';
@@ -46,9 +46,6 @@ const initialUpgrades: Record<string, Upgrade> = {
   'power_expansion': { id: 'power_expansion', name: "Power Grid Expansion", description: `Increase power capacity by ${POWER_CAPACITY_UPGRADE_BASE_AMOUNT} MW.`, level: 1, cost: POWER_GRID_BASE_COST },
   'cert_level_2': { id: 'cert_level_2', name: "Logistics Certification I", description: "Unlocks access to more complex and profitable orders.", level: 2, cost: CERTIFICATION_BASE_COST },
   'unlock_pickup': { id: 'unlock_pickup', name: "Buy Pickup Truck", description: "Capacity: 10 pallets, faster delivery.", level: 1, cost: 1500 },
-  'unlock_van': { id: 'unlock_van', name: "Buy Cargo Van", description: "Capacity: 25 pallets.", level: 1, cost: 4000 },
-  'unlock_boxtruck': { id: 'unlock_boxtruck', name: "Buy Box Truck", description: "Capacity: 50 pallets.", level: 1, cost: 10000 },
-  'unlock_semitruck': { id: 'unlock_semitruck', name: "Buy Semi-Truck", description: "Capacity: 200 pallets, very efficient.", level: 1, cost: 25000 },
 };
 
 const initialAchievements: Record<string, Achievement> = {
@@ -57,12 +54,21 @@ const initialAchievements: Record<string, Achievement> = {
   'max_lines': { id: 'max_lines', name: "Full Capacity", description: "Build all 12 production lines.", isCompleted: false },
   'master_logistician': { id: 'master_logistician', name: "Master Logistician", description: "Unlock the Semi-Truck.", isCompleted: false },
   'expert_certified': { id: 'expert_certified', name: "Expert Certified", description: "Reach the highest certification level (Level 5).", isCompleted: false },
+  'innovator': { id: 'innovator', name: "Innovator", description: "Complete your first research project.", isCompleted: false },
 };
 
 
 const initialWorkers: Worker[] = [
     { id: 1, name: "Alice", wage: 0.2, assignedLineId: null, energy: 100, maxEnergy: 100, efficiency: 1, stamina: 1, efficiencyLevel: 1, staminaLevel: 1 },
 ];
+
+const initialResearch: ResearchState = {
+  projects: {
+    'basic_automation': { id: 'basic_automation', name: "Basic Automation", description: "Implement basic automation for a 5% factory-wide efficiency boost.", cost: 10000, timeToComplete: 120, progress: 0, status: 'available', unlock: { type: 'GLOBAL_EFFICIENCY_MODIFIER', value: 0.05 } },
+    'improved_logistics': { id: 'improved_logistics', name: "Improved Logistics", description: "Unlock the Cargo Van for purchase.", cost: 2500, timeToComplete: 60, progress: 0, status: 'available', unlock: { type: 'UNLOCK_UPGRADE', upgradeId: 'unlock_van' } },
+  },
+  currentProjectId: null,
+};
 
 const NEW_ORDER_INTERVAL = 30000; // 30 seconds
 const WORKER_HIRE_COST = 500;
@@ -98,6 +104,8 @@ const initialState: GameState = {
   achievements: initialAchievements,
   totalPalletsShipped: 0,
   activeEvent: null,
+  research: initialResearch,
+  globalEfficiencyModifier: 1.0,
 };
 
 const gameReducer = (state: GameState, action: GameAction): GameState => {
@@ -215,7 +223,7 @@ const gameReducer = (state: GameState, action: GameAction): GameState => {
           }
           
           const efficiencyBoost = newState.activeEvent?.type === 'GLOBAL_EFFICIENCY_BOOST' ? (newState.activeEvent.efficiencyBoost || 1) : 1;
-          const effectiveEfficiency = currentLine.efficiency * worker.efficiency * efficiencyBoost * powerGridEfficiency;
+          const effectiveEfficiency = currentLine.efficiency * worker.efficiency * efficiencyBoost * powerGridEfficiency * newState.globalEfficiencyModifier;
           const progressIncrease = (100 / currentLine.timeToProduce) * effectiveEfficiency;
           const newProgress = Math.min(100, currentLine.progress + progressIncrease);
 
@@ -292,6 +300,20 @@ const gameReducer = (state: GameState, action: GameAction): GameState => {
         newState.powerUsage = 0;
       }
 
+      // --- Research Progress ---
+      if (newState.research.currentProjectId) {
+        const projectId = newState.research.currentProjectId;
+        const project = newState.research.projects[projectId];
+        if (project) {
+          const progressIncrease = (100 / project.timeToComplete);
+          project.progress = Math.min(100, project.progress + progressIncrease);
+
+          if (project.progress >= 100) {
+            // The COMPLETE_RESEARCH action will be dispatched from a useEffect to handle toasts correctly
+          }
+        }
+      }
+
       // --- Achievement Checks ---
       const checkAndComplete = (id: string, condition: boolean) => {
         if (condition && !newState.achievements[id].isCompleted) {
@@ -304,6 +326,7 @@ const gameReducer = (state: GameState, action: GameAction): GameState => {
       checkAndComplete('max_lines', newState.productionLines.length >= MAX_PRODUCTION_LINES);
       checkAndComplete('master_logistician', !!newState.vehicles.semitruck);
       checkAndComplete('expert_certified', newState.certificationLevel >= 5);
+      checkAndComplete('innovator', Object.values(newState.research.projects).some(p => p.status === 'completed'));
 
 
       return newState;
@@ -706,6 +729,57 @@ const gameReducer = (state: GameState, action: GameAction): GameState => {
       }
       return state;
 
+    case 'START_RESEARCH': {
+      const { projectId } = action;
+      const project = state.research.projects[projectId];
+      if (!project || project.status !== 'available' || state.money < project.cost || state.research.currentProjectId) {
+        return state;
+      }
+      
+      const newResearchState = { ...state.research };
+      newResearchState.projects[projectId] = { ...project, status: 'in_progress' };
+      newResearchState.currentProjectId = projectId;
+
+      return {
+        ...state,
+        money: state.money - project.cost,
+        research: newResearchState,
+      };
+    }
+
+    case 'COMPLETE_RESEARCH': {
+      const { projectId } = action;
+      const project = state.research.projects[projectId];
+      if (!project || project.status !== 'in_progress') {
+        return state;
+      }
+      
+      let newState = { ...state };
+      const newResearchState = { ...newState.research };
+      newResearchState.projects[projectId] = { ...project, status: 'completed' };
+      newResearchState.currentProjectId = null;
+      newState.research = newResearchState;
+
+      // Apply unlock effects
+      switch (project.unlock.type) {
+        case 'GLOBAL_EFFICIENCY_MODIFIER':
+          newState.globalEfficiencyModifier += project.unlock.value;
+          break;
+        case 'UNLOCK_UPGRADE':
+          const newUpgrades = { ...newState.upgrades };
+          if (project.unlock.upgradeId === 'unlock_van') {
+            newUpgrades['unlock_van'] = { id: 'unlock_van', name: "Buy Cargo Van", description: "Capacity: 25 pallets.", level: 1, cost: 4000 };
+          }
+           if (project.unlock.upgradeId === 'unlock_boxtruck') {
+            newUpgrades['unlock_boxtruck'] = { id: 'unlock_boxtruck', name: "Buy Box Truck", description: "Capacity: 50 pallets.", level: 1, cost: 10000 };
+          }
+          newState.upgrades = newUpgrades;
+          break;
+      }
+      
+      return newState;
+    }
+
 
     default:
       return state;
@@ -796,6 +870,23 @@ export const GameStateProvider = ({ children }: { children: ReactNode }) => {
         lastEventIdRef.current = null;
     }
   }, [state.activeEvent, toast]);
+
+  // Effect to handle completed research and show toast
+  useEffect(() => {
+      const prevResearch = stateRef.current.research;
+      const currentResearch = state.research;
+
+      if (prevResearch.currentProjectId && currentResearch.projects[prevResearch.currentProjectId]?.progress >= 100) {
+          const completedProject = currentResearch.projects[prevResearch.currentProjectId];
+          if (completedProject.status !== 'completed') {
+              dispatch({ type: 'COMPLETE_RESEARCH', projectId: completedProject.id });
+              toast({
+                  title: "Research Complete!",
+                  description: `Your team finished researching "${completedProject.name}".`,
+              });
+          }
+      }
+  }, [state.research, toast]);
 
 
   // Effect for AI order generation

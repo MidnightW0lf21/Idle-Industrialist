@@ -45,7 +45,7 @@ export default function ProductionLineCard({ line }: ProductionLineCardProps) {
   };
 
   const handleUpgrade = () => {
-    const upgradeCost = Math.floor(LINE_EFFICIENCY_UPGRADE_BASE_COST * Math.pow(line.efficiencyLevel, 1.8));
+    const upgradeCost = LINE_EFFICIENCY_UPGRADE_BASE_COST * Math.pow(line.efficiencyLevel, 1.8);
     if (state.money >= upgradeCost) {
       dispatch({ type: 'UPGRADE_PRODUCTION_LINE', lineId: line.id });
        toast({
@@ -61,7 +61,7 @@ export default function ProductionLineCard({ line }: ProductionLineCardProps) {
     }
   }
 
-  const upgradeCost = Math.floor(LINE_EFFICIENCY_UPGRADE_BASE_COST * Math.pow(line.efficiencyLevel, 1.8));
+  const upgradeCost = LINE_EFFICIENCY_UPGRADE_BASE_COST * Math.pow(line.efficiencyLevel, 1.8);
   const atEffCap = line.efficiency >= LINE_EFFICIENCY_CAP;
 
   const getStatusText = () => {
@@ -160,7 +160,7 @@ export default function ProductionLineCard({ line }: ProductionLineCardProps) {
           <div className="flex items-center gap-1">
             <ArrowUpCircle className="h-4 w-4" /> {atEffCap ? 'Efficiency (MAX)' : `Upgrade Eff. (${line.efficiency.toFixed(1)}x)`}
           </div>
-          <span className="text-xs font-mono">{atEffCap ? '—' : `$${upgradeCost.toLocaleString()}`}</span>
+          <span className="text-xs font-mono">{atEffCap ? '—' : `$${upgradeCost.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0})}`}</span>
         </Button>
       </CardFooter>
     </Card>

@@ -446,7 +446,7 @@ const gameReducer = (state: GameState, action: GameAction): GameState => {
           } else {
             newUpgrades['add_line'] = {
               ...upgrade,
-              cost: Math.floor(upgrade.cost * 2.5),
+              cost: upgrade.cost * 2.5,
               level: upgrade.level + 1,
             };
           }
@@ -456,7 +456,7 @@ const gameReducer = (state: GameState, action: GameAction): GameState => {
         case 'warehouse_expansion': {
           if (newState.warehouseCapacity >= MAX_WAREHOUSE_CAPACITY) return state;
           
-          const amountToAdd = Math.floor(WAREHOUSE_CAPACITY_UPGRADE_BASE_AMOUNT * Math.pow(upgrade.level, WAREHOUSE_CAPACITY_UPGRADE_POWER));
+          const amountToAdd = WAREHOUSE_CAPACITY_UPGRADE_BASE_AMOUNT * Math.pow(upgrade.level, WAREHOUSE_CAPACITY_UPGRADE_POWER);
           const newCapacity = newState.warehouseCapacity + amountToAdd;
           newState.warehouseCapacity = Math.min(newCapacity, MAX_WAREHOUSE_CAPACITY);
 
@@ -464,12 +464,12 @@ const gameReducer = (state: GameState, action: GameAction): GameState => {
             delete newUpgrades['warehouse_expansion'];
           } else {
             const nextLevel = upgrade.level + 1;
-            const nextAmountToAdd = Math.floor(WAREHOUSE_CAPACITY_UPGRADE_BASE_AMOUNT * Math.pow(nextLevel, WAREHOUSE_CAPACITY_UPGRADE_POWER));
+            const nextAmountToAdd = WAREHOUSE_CAPACITY_UPGRADE_BASE_AMOUNT * Math.pow(nextLevel, WAREHOUSE_CAPACITY_UPGRADE_POWER);
             newUpgrades['warehouse_expansion'] = {
               ...upgrade,
-              cost: Math.floor(WAREHOUSE_EXPANSION_BASE_COST * Math.pow(nextLevel, 1.7)),
+              cost: WAREHOUSE_EXPANSION_BASE_COST * Math.pow(nextLevel, 1.7),
               level: nextLevel,
-              description: `Increase warehouse capacity by ${nextAmountToAdd} pallets.`,
+              description: `Increase warehouse capacity by ${Math.floor(nextAmountToAdd)} pallets.`,
             };
           }
           newState.upgrades = newUpgrades;
@@ -477,12 +477,12 @@ const gameReducer = (state: GameState, action: GameAction): GameState => {
         }
         case 'power_expansion': {
           const nextLevel = upgrade.level + 1;
-          const amountToAdd = Math.floor(POWER_CAPACITY_UPGRADE_BASE_AMOUNT * Math.pow(upgrade.level, 1.5));
+          const amountToAdd = POWER_CAPACITY_UPGRADE_BASE_AMOUNT * Math.pow(upgrade.level, 1.5);
           newState.powerCapacity += amountToAdd;
           
           newUpgrades['power_expansion'] = {
               ...upgrade,
-              cost: Math.floor(POWER_GRID_BASE_COST * Math.pow(nextLevel, 1.8)),
+              cost: POWER_GRID_BASE_COST * Math.pow(nextLevel, 1.8),
               level: nextLevel,
               description: `Increase power capacity by ${Math.floor(POWER_CAPACITY_UPGRADE_BASE_AMOUNT * Math.pow(nextLevel, 1.5))} MW.`,
           };
@@ -516,7 +516,7 @@ const gameReducer = (state: GameState, action: GameAction): GameState => {
               name: certNames[nextLevel],
               description: certDescriptions[nextLevel] || "Unlocks the next tier of orders.",
               level: nextLevel,
-              cost: Math.floor(CERTIFICATION_BASE_COST * Math.pow(newLevel, 2.5)),
+              cost: CERTIFICATION_BASE_COST * Math.pow(newLevel, 2.5),
             };
           }
           newState.upgrades = newUpgrades;
@@ -662,7 +662,7 @@ const gameReducer = (state: GameState, action: GameAction): GameState => {
 
       if (upgradeType === 'efficiency') {
         if (worker.efficiency >= EFFICIENCY_CAP) return state;
-        cost = Math.floor(baseCost * Math.pow(worker.efficiencyLevel, 1.5));
+        cost = baseCost * Math.pow(worker.efficiencyLevel, 1.5);
         if (state.money >= cost) {
           newWorkers[workerIndex] = {
             ...worker,
@@ -674,7 +674,7 @@ const gameReducer = (state: GameState, action: GameAction): GameState => {
         }
       } else if (upgradeType === 'stamina') {
         if (worker.stamina >= STAMINA_CAP) return state;
-        cost = Math.floor(baseCost * Math.pow(worker.staminaLevel, 1.5));
+        cost = baseCost * Math.pow(worker.staminaLevel, 1.5);
         if (state.money >= cost) {
           newWorkers[workerIndex] = {
             ...worker,
@@ -697,7 +697,7 @@ const gameReducer = (state: GameState, action: GameAction): GameState => {
         const LINE_EFFICIENCY_CAP = 5;
         if (line.efficiency >= LINE_EFFICIENCY_CAP) return state;
 
-        const cost = Math.floor(LINE_EFFICIENCY_UPGRADE_BASE_COST * Math.pow(line.efficiencyLevel, 1.8));
+        const cost = LINE_EFFICIENCY_UPGRADE_BASE_COST * Math.pow(line.efficiencyLevel, 1.8);
         if (state.money < cost) return state;
         
         const newLines = [...state.productionLines];

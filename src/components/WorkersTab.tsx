@@ -44,7 +44,7 @@ export default function WorkersTab() {
   const handleUpgradeWorker = (workerId: number, upgradeType: 'efficiency' | 'stamina') => {
     const worker = state.workers.find(w => w.id === workerId)!;
     const level = upgradeType === 'efficiency' ? worker.efficiencyLevel : worker.staminaLevel;
-    const cost = Math.floor(UPGRADE_BASE_COST * Math.pow(level, 1.5));
+    const cost = UPGRADE_BASE_COST * Math.pow(level, 1.5);
 
     if (state.money >= cost) {
       dispatch({ type: 'UPGRADE_WORKER', workerId, upgradeType });
@@ -88,8 +88,8 @@ export default function WorkersTab() {
           <div className="space-y-4">
             {state.workers.length > 0 ? state.workers.map(worker => {
               const assignedLine = worker.assignedLineId ? state.productionLines.find(l => l.id === worker.assignedLineId) : null;
-              const efficiencyUpgradeCost = Math.floor(UPGRADE_BASE_COST * Math.pow(worker.efficiencyLevel, 1.5));
-              const staminaUpgradeCost = Math.floor(UPGRADE_BASE_COST * Math.pow(worker.staminaLevel, 1.5));
+              const efficiencyUpgradeCost = UPGRADE_BASE_COST * Math.pow(worker.efficiencyLevel, 1.5);
+              const staminaUpgradeCost = UPGRADE_BASE_COST * Math.pow(worker.staminaLevel, 1.5);
               const atEffCap = worker.efficiency >= EFFICIENCY_CAP;
               const atStamCap = worker.stamina >= STAMINA_CAP;
 
@@ -158,7 +158,7 @@ export default function WorkersTab() {
                       <div className="flex items-center gap-1">
                         <ArrowUpCircle className="h-4 w-4" /> {atEffCap ? 'Eff. (MAX)' : `Eff. (${worker.efficiency.toFixed(1)}x)`}
                       </div>
-                      <span className="text-xs font-mono">{atEffCap ? '—' : `$${efficiencyUpgradeCost.toLocaleString()}`}</span>
+                      <span className="text-xs font-mono">{atEffCap ? '—' : `$${efficiencyUpgradeCost.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0})}`}</span>
                     </Button>
                     <Button
                       size="sm"
@@ -170,7 +170,7 @@ export default function WorkersTab() {
                       <div className="flex items-center gap-1">
                         <Zap className="h-4 w-4" /> {atStamCap ? 'Stam. (MAX)' : `Stam. (${worker.stamina.toFixed(1)}x)`}
                       </div>
-                      <span className="text-xs font-mono">{atStamCap ? '—' : `$${staminaUpgradeCost.toLocaleString()}`}</span>
+                      <span className="text-xs font-mono">{atStamCap ? '—' : `$${staminaUpgradeCost.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0})}`}</span>
                     </Button>
                   </CardFooter>
                 </Card>

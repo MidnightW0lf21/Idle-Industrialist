@@ -8,6 +8,7 @@ import { Cog, Clock, Package, User, ArrowUpCircle, Zap, AlertTriangle } from 'lu
 import { Button } from './ui/button';
 import { useToast } from "@/hooks/use-toast";
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { useState, useEffect } from 'react';
 
 interface ProductionLineCardProps {
   line: ProductionLine;
@@ -19,6 +20,11 @@ const LINE_EFFICIENCY_CAP = 5;
 export default function ProductionLineCard({ line }: ProductionLineCardProps) {
   const { state, dispatch } = useGameState();
   const { toast } = useToast();
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   const worker = state.workers.find(w => w.id === line.assignedWorkerId);
   const efficiencyBoost = state.activeEvent?.type === 'GLOBAL_EFFICIENCY_BOOST' ? (state.activeEvent.efficiencyBoost || 1) : 1;
@@ -72,15 +78,15 @@ export default function ProductionLineCard({ line }: ProductionLineCardProps) {
       <CardHeader>
         <CardTitle className="flex items-start justify-between">
           <span className="flex items-center gap-2">
-            <Cog className={`w-5 h-5 ${line.orderId && line.assignedWorkerId && !line.isBlockedByMaterials && !isStrike && powerGridEfficiency > 0 ? 'animate-spin' : ''}`} style={{ animationDuration: `${Math.max(0.5, 5 / effectiveEfficiency)}s` }}/>
+            <Cog className={`w-5 h-5 ${isClient && line.orderId && line.assignedWorkerId && !line.isBlockedByMaterials && !isStrike && powerGridEfficiency > 0 ? 'animate-spin' : ''}`} style={{ animationDuration: `${Math.max(0.5, 5 / effectiveEfficiency)}s` }}/>
             Production Line {line.id}
           </span>
            <div className="w-28 text-right space-y-1">
              <span className="flex items-center justify-end gap-1.5 text-sm font-normal text-muted-foreground">
                 <User className="w-3 h-3"/>
-                {worker ? worker.name : 'Unassigned'}
+                {isClient && worker ? worker.name : 'Unassigned'}
               </span>
-              {worker && (
+              {isClient && worker && (
                   <div className="flex items-center justify-end gap-1.5">
                     <Zap className="w-3 h-3 text-yellow-500" />
                     <Progress value={worker.energy} className="h-1.5 w-20 [&>div]:bg-yellow-400" />
@@ -90,7 +96,7 @@ export default function ProductionLineCard({ line }: ProductionLineCardProps) {
         </CardTitle>
       </CardHeader>
       <CardContent className="flex-grow pt-4">
-        {line.orderId && line.productName ? (
+        {isClient && line.orderId && line.productName ? (
           <div className="space-y-2">
             <Tooltip>
               <TooltipTrigger asChild>
@@ -139,7 +145,7 @@ export default function ProductionLineCard({ line }: ProductionLineCardProps) {
           </div>
         ) : (
           <div className="text-center text-muted-foreground py-4">
-            <p>{getStatusText()}</p>
+            <p>{isClient ? getStatusText() : 'Idle'}</p>
           </div>
         )}
       </CardContent>
@@ -148,7 +154,7 @@ export default function ProductionLineCard({ line }: ProductionLineCardProps) {
           size="sm"
           variant="outline"
           onClick={handleUpgrade}
-          disabled={state.money < upgradeCost || atEffCap}
+          disabled={!isClient || state.money < upgradeCost || atEffCap}
           className="w-full justify-between"
         >
           <div className="flex items-center gap-1">

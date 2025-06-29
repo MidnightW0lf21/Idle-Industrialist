@@ -68,7 +68,7 @@ const initialAchievements: Record<string, Achievement> = {
 
 
 const initialWorkers: Worker[] = [
-    { id: 1, name: "Alice", wage: 0.2, assignedLineId: null, energy: 100, maxEnergy: 100, efficiency: 1, stamina: 1, efficiencyLevel: 1, staminaLevel: 1 },
+    { id: 1, name: "Alice", wage: 0.1, assignedLineId: null, energy: 100, maxEnergy: 100, efficiency: 1, stamina: 1, efficiencyLevel: 1, staminaLevel: 1 },
 ];
 
 const initialResearch: ResearchState = {
@@ -599,7 +599,7 @@ const gameReducer = (state: GameState, action: GameAction): GameState => {
       const newWorker: Worker = {
         id: (Math.max(...state.workers.map(w => w.id), 0) || 0) + 1,
         name: availableNames[Math.floor(Math.random() * availableNames.length)],
-        wage: 0.2,
+        wage: 0.1,
         assignedLineId: null,
         energy: 100,
         maxEnergy: 100,
@@ -660,7 +660,7 @@ const gameReducer = (state: GameState, action: GameAction): GameState => {
 
       const EFFICIENCY_CAP = 3;
       const STAMINA_CAP = 8;
-      const WAGE_INCREASE_PER_UPGRADE = 0.1;
+      const WAGE_INCREASE_PER_UPGRADE = 0.05;
 
       if (upgradeType === 'efficiency') {
         if (worker.efficiency >= EFFICIENCY_CAP) return state;

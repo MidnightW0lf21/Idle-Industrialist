@@ -49,26 +49,26 @@ export default function Header() {
           <Card className="shadow-sm">
             <CardContent className="p-2 flex items-center gap-2">
               <DollarSign className="h-5 w-5 text-green-500" />
-              <span className="font-semibold text-lg">${state.money.toLocaleString()}</span>
+              <span className="font-semibold text-lg">{mounted ? `$${state.money.toLocaleString()}` : '$...'}</span>
             </CardContent>
           </Card>
           <Card className="shadow-sm">
             <CardContent className="p-2 flex items-center gap-2">
               <Layers className="h-5 w-5 text-primary" />
-              <span className="font-semibold text-lg">{totalPallets.toLocaleString()}</span>
+              <span className="font-semibold text-lg">{mounted ? totalPallets.toLocaleString() : '...'}</span>
             </CardContent>
           </Card>
            <Card className="shadow-sm">
             <CardContent className="p-2 flex items-center gap-2">
               <Star className="h-5 w-5 text-yellow-400" />
-              <span className="font-semibold text-lg">{state.reputation.toLocaleString()}</span>
+              <span className="font-semibold text-lg">{mounted ? state.reputation.toLocaleString() : '...'}</span>
             </CardContent>
           </Card>
            <Card className="shadow-sm">
             <CardContent className="p-2 flex items-center gap-2">
               <Zap className="h-5 w-5 text-yellow-500" />
-              <span className={`font-semibold text-lg ${state.powerUsage > state.powerCapacity ? 'text-destructive' : ''}`}>
-                {state.powerUsage.toFixed(0)}/{state.powerCapacity.toFixed(0)} MW
+              <span className={`font-semibold text-lg ${mounted && state.powerUsage > state.powerCapacity ? 'text-destructive' : ''}`}>
+                {mounted ? `${state.powerUsage.toFixed(0)}/${state.powerCapacity.toFixed(0)} MW` : '.../... MW'}
               </span>
             </CardContent>
           </Card>

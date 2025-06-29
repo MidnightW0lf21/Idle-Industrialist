@@ -1,5 +1,7 @@
+
 "use client";
 
+import { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -16,6 +18,11 @@ import { useGameState } from '@/contexts/GameStateContext';
 export default function ControlPanel() {
   const { state } = useGameState();
   const hasActiveEvent = !!state.activeEvent;
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   return (
     <Card className="shadow-lg sticky top-24">
@@ -49,7 +56,7 @@ export default function ControlPanel() {
                 <TooltipTrigger asChild>
                   <TabsTrigger value="events" className="relative">
                     <Megaphone className="h-5 w-5" />
-                     {hasActiveEvent && (
+                     {isClient && hasActiveEvent && (
                       <span className="absolute top-1.5 right-1.5 flex h-2.5 w-2.5">
                         <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-destructive opacity-75"></span>
                         <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-destructive"></span>

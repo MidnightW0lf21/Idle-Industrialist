@@ -1,3 +1,4 @@
+
 'use server';
 /**
  * @fileOverview Generates new orders for the factory.
@@ -29,7 +30,7 @@ export type GenerateOrderInput = z.infer<typeof GenerateOrderInputSchema>;
 const NewOrderOutputSchema = z.object({
   productName: z.string().describe("A common electronic component. E.g., '1k Ohm Resistors', '100uF Capacitors', '5mm Red LEDs', 'ATmega328P Microcontroller'."),
   quantity: z.number().int().min(5).max(500).describe("The number of units to produce. Should be balanced based on player's capacity."),
-  reward: z.number().int().min(100).describe("The total monetary reward for completing the order. Should be proportional to quantity and time."),
+  reward: z.number().int().min(10000).describe("The total monetary reward for completing the order. Should be proportional to quantity and time."),
   timeToProduce: z.number().int().min(1).describe("The time in seconds required to produce the entire order. Production should be slow, around 30 to 120 seconds per unit (pallet). Calculate the total time based on the quantity."),
   materialRequirements: z.object({
     'Resistors': z.number().int().min(1).optional(),
@@ -59,6 +60,8 @@ const prompt = ai.definePrompt({
   model: 'googleai/gemini-2.0-flash',
   prompt: `You are a logistics AI for an electronics factory simulation game. Your task is to generate a new, balanced order for the player. The products are real-life electronic components.
 
+  The game uses whole numbers for currency. All monetary values (rewards, costs) should be scaled up significantly. For reference, a new production line costs $100,000.
+
   Analyze the player's current situation:
   - Money: {{playerMoney}}
   - Production Lines: {{productionCapacity}}
@@ -69,11 +72,11 @@ const prompt = ai.definePrompt({
 
   Based on this, create a new order that is challenging but achievable.
   - The Certification Level is the MOST IMPORTANT factor for difficulty.
-  - Level 1: Generate a VERY SIMPLE and FAST order. Small quantity (5-20), low reward, short production time (30-60s total), and only 1 simple raw material (like Resistors or LEDs) with low requirements (10-25 per pallet).
-  - Level 2: Generate a basic order. Slightly larger quantity (20-50), more reward, and 1-2 raw materials.
-  - Level 3: Intermediate order. Larger quantity (50-150), significant reward, and 2 more complex materials.
-  - Level 4: Advanced order. Large quantity (150-300), high reward, and 2-3 materials, including more expensive ones like PCBs or ICs.
-  - Level 5: Expert order. Very large quantity (300-500), massive reward, and 3 complex materials with high requirements per pallet.
+  - Level 1: Generate a VERY SIMPLE and FAST order. Small quantity (5-20), low reward (e.g., 15,000-60,000), short production time (30-60s total), and only 1 simple raw material (like Resistors or LEDs) with low requirements (10-25 per pallet).
+  - Level 2: Generate a basic order. Slightly larger quantity (20-50), more reward (e.g., 60,000-250,000), and 1-2 raw materials.
+  - Level 3: Intermediate order. Larger quantity (50-150), significant reward (e.g., 250,000-1,000,000), and 2 more complex materials.
+  - Level 4: Advanced order. Large quantity (150-300), high reward (e.g., 1,000,000-5,000,000), and 2-3 materials, including more expensive ones like PCBs or ICs.
+  - Level 5: Expert order. Very large quantity (300-500), massive reward (e.g., 5,000,000-20,000,000), and 3 complex materials with high requirements per pallet.
 
   **Contracts:**
   - If the player's Certification Level is 3 or higher AND their reputation is above 50, you have a chance (around 20%) to generate a special **Contract** instead of a regular order.

@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useGameState } from '@/contexts/GameStateContext';
@@ -9,8 +10,8 @@ import { UserPlus, User, Briefcase, DollarSign, Zap, ArrowUpCircle } from 'lucid
 import { useToast } from "@/hooks/use-toast";
 import { Progress } from '@/components/ui/progress';
 
-const WORKER_HIRE_COST = 500;
-const UPGRADE_BASE_COST = 250;
+const WORKER_HIRE_COST = 50000;
+const UPGRADE_BASE_COST = 25000;
 const EFFICIENCY_CAP = 3;
 const STAMINA_CAP = 8;
 
@@ -100,7 +101,7 @@ export default function WorkersTab() {
                         <User className="w-5 h-5"/> {worker.name}
                       </span>
                       <span className="text-sm font-mono flex items-center gap-1 text-muted-foreground">
-                        <DollarSign className="w-3 h-3" /> {worker.wage.toFixed(2)}/s
+                        <DollarSign className="w-3 h-3" /> {worker.wage.toLocaleString()}/s
                       </span>
                     </CardTitle>
                   </CardHeader>
@@ -157,7 +158,7 @@ export default function WorkersTab() {
                       <div className="flex items-center gap-1">
                         <ArrowUpCircle className="h-4 w-4" /> {atEffCap ? 'Eff. (MAX)' : `Eff. (${worker.efficiency.toFixed(1)}x)`}
                       </div>
-                      <span className="text-xs font-mono">{atEffCap ? '—' : `$${efficiencyUpgradeCost}`}</span>
+                      <span className="text-xs font-mono">{atEffCap ? '—' : `$${efficiencyUpgradeCost.toLocaleString()}`}</span>
                     </Button>
                     <Button
                       size="sm"
@@ -169,7 +170,7 @@ export default function WorkersTab() {
                       <div className="flex items-center gap-1">
                         <Zap className="h-4 w-4" /> {atStamCap ? 'Stam. (MAX)' : `Stam. (${worker.stamina.toFixed(1)}x)`}
                       </div>
-                      <span className="text-xs font-mono">{atStamCap ? '—' : `$${staminaUpgradeCost}`}</span>
+                      <span className="text-xs font-mono">{atStamCap ? '—' : `$${staminaUpgradeCost.toLocaleString()}`}</span>
                     </Button>
                   </CardFooter>
                 </Card>

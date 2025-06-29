@@ -40,7 +40,7 @@ export default function InvoicesTab() {
       if (priceChangeEvent && priceChangeEvent.targetItem === selectedMaterial) {
         costMultiplier = priceChangeEvent.priceMultiplier || 1;
       }
-      setTotalCost(materialDetails.costPerUnit * numericQuantity * costMultiplier);
+      setTotalCost(Math.floor(materialDetails.costPerUnit * numericQuantity * costMultiplier));
 
       let time = materialDetails.timePerUnit * numericQuantity * state.deliveryTimeModifier;
       if (deliveryDelayEvent) {
@@ -130,7 +130,7 @@ export default function InvoicesTab() {
 
                       return (
                         <SelectItem key={name} value={name}>
-                          {name} (${displayCost.toFixed(2)}/unit)
+                          {name} (${Math.floor(displayCost).toLocaleString()}/unit)
                           {costMultiplier !== 1 && (
                             costMultiplier > 1 
                             ? <TrendingUp className="inline w-4 h-4 ml-2 text-destructive" />
@@ -159,7 +159,7 @@ export default function InvoicesTab() {
                     <p className="font-semibold">Est. Delivery Time:</p>
                 </div>
                 <div className="text-right space-y-1">
-                  <p className="font-mono">${totalCost.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>
+                  <p className="font-mono">${totalCost.toLocaleString()}</p>
                   <p className="font-mono">{formatTime(totalTime)}</p>
                 </div>
             </div>

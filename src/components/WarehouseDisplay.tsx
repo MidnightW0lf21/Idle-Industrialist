@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -5,13 +6,20 @@ import { useGameState, AVAILABLE_RAW_MATERIALS, RAW_MATERIAL_UNITS_PER_PALLET_SP
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
-import { Warehouse, Truck, AlertCircle, Package, Clock, CircleDollarSign, Component, TrendingUp } from 'lucide-react';
+import { Warehouse, Truck, AlertCircle, Package, Clock, CircleDollarSign, Component, TrendingUp, Car, MoveHorizontal } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import { Separator } from '@/components/ui/separator';
 import { Input } from '@/components/ui/input';
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Label } from "@/components/ui/label"
 import { ScrollArea } from './ui/scroll-area';
+
+const ICONS: Record<string, LucideIcon> = {
+  Truck,
+  MoveHorizontal,
+  Car,
+};
 
 export default function WarehouseDisplay() {
   const { state, dispatch } = useGameState();
@@ -84,7 +92,7 @@ export default function WarehouseDisplay() {
   };
   
   const formatTime = (seconds: number) => {
-    if (seconds < 0 || !isFinite(seconds)) return '00:00';
+    if (seconds < 0 || !isFinite(seconds) || isNaN(seconds)) return '00:00';
     const minutes = Math.floor(seconds / 60);
     const remainingSeconds = Math.floor(seconds % 60);
     return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
@@ -176,7 +184,7 @@ export default function WarehouseDisplay() {
                 <Label>2. Select Vehicle</Label>
                 <RadioGroup value={selectedVehicleId || ''} onValueChange={setSelectedVehicleId} className="rounded-md border p-2 space-y-1">
                   {Object.values(state.vehicles).map(vehicle => {
-                    const VehicleIcon = vehicle.icon;
+                    const VehicleIcon = ICONS[vehicle.iconName] || Truck;
                     return (
                       <Label key={vehicle.id} htmlFor={vehicle.id} className="flex items-center justify-between p-2 rounded-md hover:bg-secondary/50 cursor-pointer text-sm">
                         <div className="flex items-center gap-2">

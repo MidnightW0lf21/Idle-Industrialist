@@ -58,7 +58,7 @@ export interface Vehicle {
   name: string;
   capacity: number;
   timePerPallet: number; // time in seconds per pallet
-  icon: LucideIcon;
+  iconName: string;
 }
 
 export interface Shipment {

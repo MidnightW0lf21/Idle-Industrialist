@@ -5,7 +5,6 @@ import React, { createContext, useContext, useReducer, useEffect, ReactNode, use
 import type { GameState, GameAction, Order, ProductionLine, Upgrade, StoredPallet, Worker, Vehicle, Shipment, Invoice, Achievement, SpecialEvent, ResearchState } from '@/types';
 import { generateNewOrder } from '@/ai/flows/order-generation-flow';
 import { generateSpecialEvent } from '@/ai/flows/special-event-flow';
-import { Truck, MoveHorizontal, Car } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast"
 
 export const AVAILABLE_RAW_MATERIALS: Record<string, { costPerUnit: number, timePerUnit: number }> = {
@@ -24,11 +23,11 @@ export const AVAILABLE_RAW_MATERIALS: Record<string, { costPerUnit: number, time
 export const RAW_MATERIAL_UNITS_PER_PALLET_SPACE = 1000;
 
 const ALL_VEHICLES: Record<string, Vehicle> = {
-  wheelbarrow: { id: 'wheelbarrow', name: 'Wheelbarrow', capacity: 2, timePerPallet: 60, icon: MoveHorizontal },
-  pickup: { id: 'pickup', name: 'Pickup Truck', capacity: 10, timePerPallet: 10, icon: Car },
-  van: { id: 'van', name: 'Cargo Van', capacity: 25, timePerPallet: 9, icon: Truck },
-  boxtruck: { id: 'boxtruck', name: 'Box Truck', capacity: 50, timePerPallet: 8, icon: Truck },
-  semitruck: { id: 'semitruck', name: 'Semi-Truck', capacity: 200, timePerPallet: 6, icon: Truck },
+  wheelbarrow: { id: 'wheelbarrow', name: 'Wheelbarrow', capacity: 2, timePerPallet: 60, iconName: 'MoveHorizontal' },
+  pickup: { id: 'pickup', name: 'Pickup Truck', capacity: 10, timePerPallet: 10, iconName: 'Car' },
+  van: { id: 'van', name: 'Cargo Van', capacity: 25, timePerPallet: 9, iconName: 'Truck' },
+  boxtruck: { id: 'boxtruck', name: 'Box Truck', capacity: 50, timePerPallet: 8, iconName: 'Truck' },
+  semitruck: { id: 'semitruck', name: 'Semi-Truck', capacity: 200, timePerPallet: 6, iconName: 'Truck' },
 };
 
 const WAREHOUSE_EXPANSION_BASE_COST = 750;
@@ -827,13 +826,46 @@ const gameReducer = (state: GameState, action: GameAction): GameState => {
 const GameStateContext = createContext<{ state: GameState; dispatch: React.Dispatch<GameAction> } | undefined>(undefined);
 
 export const GameStateProvider = ({ children }: { children: ReactNode }) => {
-  const [state, dispatch] = useReducer(gameReducer, initialState);
+  const [state, dispatch] = useReducer(gameReducer, initialState, (initial) => {
+    if (typeof window === 'undefined') {
+      return initial;
+    }
+    try {
+      const savedStateJSON = localStorage.getItem('idleIndustrialistSave');
+      if (savedStateJSON) {
+        const savedState = JSON.parse(savedStateJSON);
+        // Merge with initial state to handle migrations where new properties are added
+        return { ...initial, ...savedState };
+      }
+    } catch (e) {
+      console.error("Failed to load or parse saved state, starting fresh.", e);
+      localStorage.removeItem('idleIndustrialistSave');
+    }
+    return initial;
+  });
+
   const { toast } = useToast();
   const stateRef = useRef(state);
   stateRef.current = state;
   const prevAchievementsRef = useRef(state.achievements);
   const prevReputationRef = useRef(state.reputation);
   const lastEventIdRef = useRef<number | null>(null);
+
+  // Save game state to localStorage on change
+  useEffect(() => {
+    try {
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('idleIndustrialistSave', JSON.stringify(state));
+      }
+    } catch (error) {
+      console.error("Failed to save game state:", error);
+      toast({
+        title: "Save Error",
+        description: "Could not save game progress to local storage. It might be full.",
+        variant: "destructive"
+      });
+    }
+  }, [state, toast]);
 
   // Game Loop
   useEffect(() => {

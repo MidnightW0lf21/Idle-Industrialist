@@ -113,7 +113,7 @@ export interface ResearchProject {
     progress: number; // 0-100
     status: 'available' | 'in_progress' | 'completed';
     unlock: {
-        type: 'GLOBAL_EFFICIENCY_MODIFIER' | 'UNLOCK_UPGRADE';
+        type: 'GLOBAL_EFFICIENCY_MODIFIER' | 'UNLOCK_UPGRADE' | 'UNLOCK_TECHNOLOGY';
         value?: any;
         upgradeId?: string;
     }
@@ -147,6 +147,7 @@ export interface GameState {
   activeEvent: SpecialEvent | null;
   research: ResearchState;
   globalEfficiencyModifier: number;
+  unlockedTechnologies: string[];
 }
 
 export type GameAction =

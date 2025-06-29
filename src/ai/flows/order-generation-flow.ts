@@ -20,7 +20,8 @@ const GenerateOrderInputSchema = z.object({
   productionCapacity: z.number().describe("The number of production lines the player has."),
   warehouseUsage: z.number().describe("The current percentage of warehouse capacity being used (0-100)."),
   certificationLevel: z.number().int().min(1).describe("The player's certification level. Higher levels unlock more complex and profitable orders. Level 1: Very simple orders. Level 2: Basic orders. Level 3: Intermediate orders. Level 4: Advanced orders. Level 5: Expert-level, highly complex orders."),
-  reputation: z.number().int().min(0).describe("The player's reputation score. Higher reputation unlocks special, high-value contracts.")
+  reputation: z.number().int().min(0).describe("The player's reputation score. Higher reputation unlocks special, high-value contracts."),
+  unlockedTechnologies: z.array(z.string()).describe("A list of technologies the player has researched, which unlock more complex products and materials. Examples: 'Advanced_Circuits', 'Photonics'.").optional()
 });
 export type GenerateOrderInput = z.infer<typeof GenerateOrderInputSchema>;
 
@@ -64,6 +65,7 @@ const prompt = ai.definePrompt({
   - Warehouse Usage: {{warehouseUsage}}%
   - Certification Level: {{certificationLevel}}
   - Reputation: {{reputation}}
+  - Unlocked Technologies: {{#if unlockedTechnologies}}{{#each unlockedTechnologies}}{{{this}}}{{#unless @last}}, {{/unless}}{{/each}}{{else}}None{{/if}}
 
   Based on this, create a new order that is challenging but achievable.
   - The Certification Level is the MOST IMPORTANT factor for difficulty.
@@ -77,6 +79,13 @@ const prompt = ai.definePrompt({
   - If the player's Certification Level is 3 or higher AND their reputation is above 50, you have a chance (around 20%) to generate a special **Contract** instead of a regular order.
   - Contracts are larger and more valuable than regular orders for the same certification level. They should feel like a big deal.
   - If you generate a Contract, set \`isContract: true\` and provide a \`reputationReward\` between 5 and 20 points, proportional to the contract's difficulty. Otherwise, omit these fields.
+
+  **Unlocked Technologies:**
+  - If the player has unlocked technologies, you should generate orders for more advanced products. These products should require more complex or a higher number of raw materials, have longer production times, but offer significantly higher rewards.
+  - **Advanced_Circuits:** Generate orders for products like 'Multi-Layer PCBs', 'High-Frequency ICs', or 'FPGA Development Boards'. These should require a mix of basic components plus larger quantities of PCBs and Integrated Circuits.
+  - **Photonics:** Generate orders for 'Fiber Optic Transceivers', 'Laser Diode Modules', or 'Photodetector Arrays'. These could require Quartz Crystals, Diodes, and Integrated Circuits.
+  - **Power_Electronics:** Generate orders for 'Industrial Power Inverters', 'High-Capacity Rectifiers', or 'Switch-Mode Power Supplies'. These could require lots of Capacitors, Transistors, and Inductors.
+  - If no special technologies are unlocked, stick to the component types and complexity dictated by the Certification Level.
   
   General rules:
   - If warehouse usage is high, create smaller orders for the given certification level.

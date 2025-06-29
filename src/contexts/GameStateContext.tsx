@@ -69,6 +69,9 @@ const initialResearch: ResearchState = {
     'advanced_logistics': { id: 'advanced_logistics', name: "Advanced Logistics", description: "Develop advanced routing algorithms to unlock the Box Truck for purchase.", cost: 7500, timeToComplete: 180, progress: 0, status: 'available', unlock: { type: 'UNLOCK_UPGRADE', upgradeId: 'unlock_boxtruck' } },
     'global_supply_chain': { id: 'global_supply_chain', name: "Global Supply Chain", description: "Master global logistics to unlock the powerful Semi-Truck for purchase.", cost: 20000, timeToComplete: 300, progress: 0, status: 'available', unlock: { type: 'UNLOCK_UPGRADE', upgradeId: 'unlock_semitruck' } },
     'advanced_automation': { id: 'advanced_automation', name: "Advanced Automation", description: "Further enhance automation for another 10% factory-wide efficiency boost.", cost: 50000, timeToComplete: 600, progress: 0, status: 'available', unlock: { type: 'GLOBAL_EFFICIENCY_MODIFIER', value: 0.10 } },
+    'advanced_circuit_design': { id: 'advanced_circuit_design', name: "Advanced Circuit Design", description: "Research multi-layer circuit boards and more efficient transistors, enabling production of high-performance electronics.", cost: 25000, timeToComplete: 400, progress: 0, status: 'available', unlock: { type: 'UNLOCK_TECHNOLOGY', value: 'Advanced_Circuits' } },
+    'power_electronics': { id: 'power_electronics', name: "Power Electronics", description: "Master high-voltage components for power supplies and inverters, opening up a new market for industrial-grade electronics.", cost: 40000, timeToComplete: 600, progress: 0, status: 'available', unlock: { type: 'UNLOCK_TECHNOLOGY', value: 'Power_Electronics' } },
+    'photonics_integration': { id: 'photonics_integration', name: "Photonics Integration", description: "Integrate light-based components into your products, unlocking orders for fiber optic transceivers and laser diodes.", cost: 75000, timeToComplete: 800, progress: 0, status: 'available', unlock: { type: 'UNLOCK_TECHNOLOGY', value: 'Photonics' } },
   },
   currentProjectId: null,
 };
@@ -109,6 +112,7 @@ const initialState: GameState = {
   activeEvent: null,
   research: initialResearch,
   globalEfficiencyModifier: 1.0,
+  unlockedTechnologies: [],
 };
 
 const gameReducer = (state: GameState, action: GameAction): GameState => {
@@ -780,6 +784,12 @@ const gameReducer = (state: GameState, action: GameAction): GameState => {
           newState.upgrades = newUpgrades;
           break;
         }
+        case 'UNLOCK_TECHNOLOGY': {
+          if (!newState.unlockedTechnologies.includes(project.unlock.value)) {
+              newState.unlockedTechnologies = [...newState.unlockedTechnologies, project.unlock.value];
+          }
+          break;
+        }
       }
       
       return newState;
@@ -899,7 +909,7 @@ export const GameStateProvider = ({ children }: { children: ReactNode }) => {
     let isMounted = true;
     const generate = async () => {
       // Use the ref to get the latest state without adding them as dependencies
-      const { money, productionLines, warehouseCapacity, availableOrders, pallets, rawMaterials, certificationLevel, reputation } = stateRef.current;
+      const { money, productionLines, warehouseCapacity, availableOrders, pallets, rawMaterials, certificationLevel, reputation, unlockedTechnologies } = stateRef.current;
       
       if (availableOrders.length >= 6 || !isMounted) return;
 
@@ -915,6 +925,7 @@ export const GameStateProvider = ({ children }: { children: ReactNode }) => {
           warehouseUsage: isNaN(warehouseUsage) ? 0 : warehouseUsage,
           certificationLevel: certificationLevel,
           reputation: reputation,
+          unlockedTechnologies: unlockedTechnologies,
       };
       
       try {

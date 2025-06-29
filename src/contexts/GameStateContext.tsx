@@ -86,7 +86,7 @@ const initialResearch: ResearchState = {
 };
 
 const NEW_ORDER_INTERVAL = 30000; // 30 seconds
-const WORKER_HIRE_COST = 5000;
+const WORKER_HIRE_COST = 50000;
 const POSSIBLE_WORKER_NAMES = ["Charlie", "Dana", "Eli", "Frankie", "Gabi", "Harper", "Izzy", "Jordan", "Kai", "Leo", "Bob"];
 
 const LINE_EFFICIENCY_UPGRADE_BASE_COST = 400;
@@ -652,7 +652,7 @@ const gameReducer = (state: GameState, action: GameAction): GameState => {
       if (workerIndex === -1) return state;
 
       const worker = state.workers[workerIndex];
-      const baseCost = 2500;
+      const baseCost = 25000;
       let cost = 0;
       const newWorkers = [...state.workers];
 

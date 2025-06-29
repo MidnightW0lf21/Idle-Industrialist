@@ -8,16 +8,16 @@ import { generateSpecialEvent } from '@/ai/flows/special-event-flow';
 import { useToast } from "@/hooks/use-toast"
 
 export const AVAILABLE_RAW_MATERIALS: Record<string, { costPerUnit: number, timePerUnit: number }> = {
-  'Resistors': { costPerUnit: 10, timePerUnit: 22.4 },
-  'Capacitors': { costPerUnit: 20, timePerUnit: 22.4 },
-  'Transistors': { costPerUnit: 50, timePerUnit: 28.8 },
-  'LEDs': { costPerUnit: 30, timePerUnit: 22.4 },
-  'PCBs': { costPerUnit: 200, timePerUnit: 128 },
-  'Integrated Circuits': { costPerUnit: 500, timePerUnit: 256 },
-  'Diodes': { costPerUnit: 25, timePerUnit: 19.2 },
-  'Inductors': { costPerUnit: 70, timePerUnit: 38.4 },
-  'Quartz Crystals': { costPerUnit: 150, timePerUnit: 80 },
-  'Switches': { costPerUnit: 80, timePerUnit: 32.0 },
+  'Resistors': { costPerUnit: 1, timePerUnit: 22.4 },
+  'Capacitors': { costPerUnit: 2, timePerUnit: 22.4 },
+  'Transistors': { costPerUnit: 5, timePerUnit: 28.8 },
+  'LEDs': { costPerUnit: 3, timePerUnit: 22.4 },
+  'PCBs': { costPerUnit: 20, timePerUnit: 128 },
+  'Integrated Circuits': { costPerUnit: 50, timePerUnit: 256 },
+  'Diodes': { costPerUnit: 2.5, timePerUnit: 19.2 },
+  'Inductors': { costPerUnit: 7, timePerUnit: 38.4 },
+  'Quartz Crystals': { costPerUnit: 15, timePerUnit: 80 },
+  'Switches': { costPerUnit: 8, timePerUnit: 32.0 },
 };
 
 export const RAW_MATERIAL_UNITS_PER_PALLET_SPACE = 1000;
@@ -30,22 +30,22 @@ const ALL_VEHICLES: Record<string, Vehicle> = {
   semitruck: { id: 'semitruck', name: 'Semi-Truck', capacity: 200, timePerPallet: 6, iconName: 'Truck' },
 };
 
-const WAREHOUSE_EXPANSION_BASE_COST = 75000;
+const WAREHOUSE_EXPANSION_BASE_COST = 7500;
 const WAREHOUSE_CAPACITY_UPGRADE_BASE_AMOUNT = 20;
 const WAREHOUSE_CAPACITY_UPGRADE_POWER = 1.6;
-const CERTIFICATION_BASE_COST = 250000;
+const CERTIFICATION_BASE_COST = 25000;
 const MAX_PRODUCTION_LINES = 12;
-const POWER_GRID_BASE_COST = 300000;
+const POWER_GRID_BASE_COST = 30000;
 const POWER_CAPACITY_UPGRADE_BASE_AMOUNT = 15;
 const LINE_POWER_CONSUMPTION = 5; // in MW
 
 const initialUpgrades: Record<string, Upgrade> = {
-  'add_line': { id: 'add_line', name: "New Production Line", description: "Build an additional production line.", level: 1, cost: 100000 },
+  'add_line': { id: 'add_line', name: "New Production Line", description: "Build an additional production line.", level: 1, cost: 10000 },
   'warehouse_expansion': { id: 'warehouse_expansion', name: "Warehouse Expansion", description: `Increase warehouse capacity by ${WAREHOUSE_CAPACITY_UPGRADE_BASE_AMOUNT} pallets.`, level: 1, cost: WAREHOUSE_EXPANSION_BASE_COST },
   'power_expansion': { id: 'power_expansion', name: "Power Grid Expansion", description: `Increase power capacity by ${POWER_CAPACITY_UPGRADE_BASE_AMOUNT} MW.`, level: 1, cost: POWER_GRID_BASE_COST },
   'cert_level_2': { id: 'cert_level_2', name: "Logistics Certification I", description: "Unlocks access to more complex and profitable orders.", level: 2, cost: CERTIFICATION_BASE_COST },
-  'delivery_speed_1': { id: 'delivery_speed_1', name: "Local Supplier Contract", description: "Reduce material delivery times by 15%.", level: 1, cost: 500000 },
-  'unlock_pickup': { id: 'unlock_pickup', name: "Buy Pickup Truck", description: "Capacity: 10 pallets, faster delivery.", level: 1, cost: 150000 },
+  'delivery_speed_1': { id: 'delivery_speed_1', name: "Local Supplier Contract", description: "Reduce material delivery times by 15%.", level: 1, cost: 50000 },
+  'unlock_pickup': { id: 'unlock_pickup', name: "Buy Pickup Truck", description: "Capacity: 10 pallets, faster delivery.", level: 1, cost: 15000 },
 };
 
 const initialAchievements: Record<string, Achievement> = {
@@ -68,28 +68,28 @@ const initialAchievements: Record<string, Achievement> = {
 
 
 const initialWorkers: Worker[] = [
-    { id: 1, name: "Alice", wage: 10, assignedLineId: null, energy: 100, maxEnergy: 100, efficiency: 1, stamina: 1, efficiencyLevel: 1, staminaLevel: 1 },
+    { id: 1, name: "Alice", wage: 0.1, assignedLineId: null, energy: 100, maxEnergy: 100, efficiency: 1, stamina: 1, efficiencyLevel: 1, staminaLevel: 1 },
 ];
 
 const initialResearch: ResearchState = {
   projects: {
-    'basic_automation': { id: 'basic_automation', name: "Basic Automation", description: "Implement basic automation for a 5% factory-wide efficiency boost.", cost: 1000000, timeToComplete: 120, progress: 0, status: 'available', unlock: { type: 'GLOBAL_EFFICIENCY_MODIFIER', value: 0.05 } },
-    'improved_logistics': { id: 'improved_logistics', name: "Improved Logistics", description: "Unlock the Cargo Van for purchase.", cost: 250000, timeToComplete: 60, progress: 0, status: 'available', unlock: { type: 'UNLOCK_UPGRADE', upgradeId: 'unlock_van' } },
-    'advanced_logistics': { id: 'advanced_logistics', name: "Advanced Logistics", description: "Develop advanced routing algorithms to unlock the Box Truck for purchase.", cost: 750000, timeToComplete: 180, progress: 0, status: 'available', unlock: { type: 'UNLOCK_UPGRADE', upgradeId: 'unlock_boxtruck' } },
-    'global_supply_chain': { id: 'global_supply_chain', name: "Global Supply Chain", description: "Master global logistics to unlock the powerful Semi-Truck for purchase.", cost: 2000000, timeToComplete: 300, progress: 0, status: 'available', unlock: { type: 'UNLOCK_UPGRADE', upgradeId: 'unlock_semitruck' } },
-    'advanced_automation': { id: 'advanced_automation', name: "Advanced Automation", description: "Further enhance automation for another 10% factory-wide efficiency boost.", cost: 5000000, timeToComplete: 600, progress: 0, status: 'available', unlock: { type: 'GLOBAL_EFFICIENCY_MODIFIER', value: 0.10 } },
-    'advanced_circuit_design': { id: 'advanced_circuit_design', name: "Advanced Circuit Design", description: "Research multi-layer circuit boards and more efficient transistors, enabling production of high-performance electronics.", cost: 2500000, timeToComplete: 400, progress: 0, status: 'available', unlock: { type: 'UNLOCK_TECHNOLOGY', value: 'Advanced_Circuits' } },
-    'power_electronics': { id: 'power_electronics', name: "Power Electronics", description: "Master high-voltage components for power supplies and inverters, opening up a new market for industrial-grade electronics.", cost: 4000000, timeToComplete: 600, progress: 0, status: 'available', unlock: { type: 'UNLOCK_TECHNOLOGY', value: 'Power_Electronics' } },
-    'photonics_integration': { id: 'photonics_integration', name: "Photonics Integration", description: "Integrate light-based components into your products, unlocking orders for fiber optic transceivers and laser diodes.", cost: 7500000, timeToComplete: 800, progress: 0, status: 'available', unlock: { type: 'UNLOCK_TECHNOLOGY', value: 'Photonics' } },
+    'basic_automation': { id: 'basic_automation', name: "Basic Automation", description: "Implement basic automation for a 5% factory-wide efficiency boost.", cost: 100000, timeToComplete: 120, progress: 0, status: 'available', unlock: { type: 'GLOBAL_EFFICIENCY_MODIFIER', value: 0.05 } },
+    'improved_logistics': { id: 'improved_logistics', name: "Improved Logistics", description: "Unlock the Cargo Van for purchase.", cost: 25000, timeToComplete: 60, progress: 0, status: 'available', unlock: { type: 'UNLOCK_UPGRADE', upgradeId: 'unlock_van' } },
+    'advanced_logistics': { id: 'advanced_logistics', name: "Advanced Logistics", description: "Develop advanced routing algorithms to unlock the Box Truck for purchase.", cost: 75000, timeToComplete: 180, progress: 0, status: 'available', unlock: { type: 'UNLOCK_UPGRADE', upgradeId: 'unlock_boxtruck' } },
+    'global_supply_chain': { id: 'global_supply_chain', name: "Global Supply Chain", description: "Master global logistics to unlock the powerful Semi-Truck for purchase.", cost: 200000, timeToComplete: 300, progress: 0, status: 'available', unlock: { type: 'UNLOCK_UPGRADE', upgradeId: 'unlock_semitruck' } },
+    'advanced_automation': { id: 'advanced_automation', name: "Advanced Automation", description: "Further enhance automation for another 10% factory-wide efficiency boost.", cost: 500000, timeToComplete: 600, progress: 0, status: 'available', unlock: { type: 'GLOBAL_EFFICIENCY_MODIFIER', value: 0.10 } },
+    'advanced_circuit_design': { id: 'advanced_circuit_design', name: "Advanced Circuit Design", description: "Research multi-layer circuit boards and more efficient transistors, enabling production of high-performance electronics.", cost: 250000, timeToComplete: 400, progress: 0, status: 'available', unlock: { type: 'UNLOCK_TECHNOLOGY', value: 'Advanced_Circuits' } },
+    'power_electronics': { id: 'power_electronics', name: "Power Electronics", description: "Master high-voltage components for power supplies and inverters, opening up a new market for industrial-grade electronics.", cost: 400000, timeToComplete: 600, progress: 0, status: 'available', unlock: { type: 'UNLOCK_TECHNOLOGY', value: 'Power_Electronics' } },
+    'photonics_integration': { id: 'photonics_integration', name: "Photonics Integration", description: "Integrate light-based components into your products, unlocking orders for fiber optic transceivers and laser diodes.", cost: 750000, timeToComplete: 800, progress: 0, status: 'available', unlock: { type: 'UNLOCK_TECHNOLOGY', value: 'Photonics' } },
   },
   currentProjectId: null,
 };
 
 const NEW_ORDER_INTERVAL = 30000; // 30 seconds
-const WORKER_HIRE_COST = 50000;
+const WORKER_HIRE_COST = 5000;
 const POSSIBLE_WORKER_NAMES = ["Charlie", "Dana", "Eli", "Frankie", "Gabi", "Harper", "Izzy", "Jordan", "Kai", "Leo", "Bob"];
 
-const LINE_EFFICIENCY_UPGRADE_BASE_COST = 40000;
+const LINE_EFFICIENCY_UPGRADE_BASE_COST = 400;
 const MAX_WAREHOUSE_CAPACITY = 1500;
 const PRODUCTION_QUEUE_CAP = 10;
 
@@ -545,13 +545,13 @@ const gameReducer = (state: GameState, action: GameAction): GameState => {
         case 'delivery_speed_1':
             newState.deliveryTimeModifier = 0.85; // 15% reduction
             delete newUpgrades['delivery_speed_1'];
-            newUpgrades['delivery_speed_2'] = { id: 'delivery_speed_2', name: "Regional Distribution Center", description: "Reduce material delivery times by a further 20%.", level: 2, cost: 2000000 };
+            newUpgrades['delivery_speed_2'] = { id: 'delivery_speed_2', name: "Regional Distribution Center", description: "Reduce material delivery times by a further 20%.", level: 2, cost: 200000 };
             newState.upgrades = newUpgrades;
             break;
         case 'delivery_speed_2':
             newState.deliveryTimeModifier = 0.65; // ~35% total reduction
             delete newUpgrades['delivery_speed_2'];
-            newUpgrades['delivery_speed_3'] = { id: 'delivery_speed_3', name: "Drone Delivery Network", description: "Reduce material delivery times by a further 25%.", level: 3, cost: 10000000 };
+            newUpgrades['delivery_speed_3'] = { id: 'delivery_speed_3', name: "Drone Delivery Network", description: "Reduce material delivery times by a further 25%.", level: 3, cost: 1000000 };
             newState.upgrades = newUpgrades;
             break;
         case 'delivery_speed_3':
@@ -597,7 +597,7 @@ const gameReducer = (state: GameState, action: GameAction): GameState => {
       const newWorker: Worker = {
         id: (Math.max(...state.workers.map(w => w.id), 0) || 0) + 1,
         name: availableNames[Math.floor(Math.random() * availableNames.length)],
-        wage: 10,
+        wage: 0.1,
         assignedLineId: null,
         energy: 100,
         maxEnergy: 100,
@@ -652,13 +652,13 @@ const gameReducer = (state: GameState, action: GameAction): GameState => {
       if (workerIndex === -1) return state;
 
       const worker = state.workers[workerIndex];
-      const baseCost = 25000;
+      const baseCost = 2500;
       let cost = 0;
       const newWorkers = [...state.workers];
 
       const EFFICIENCY_CAP = 3;
       const STAMINA_CAP = 8;
-      const WAGE_INCREASE_PER_UPGRADE = 5;
+      const WAGE_INCREASE_PER_UPGRADE = 0.05;
 
       if (upgradeType === 'efficiency') {
         if (worker.efficiency >= EFFICIENCY_CAP) return state;
@@ -694,6 +694,7 @@ const gameReducer = (state: GameState, action: GameAction): GameState => {
         if (lineIndex === -1) return state;
 
         const line = state.productionLines[lineIndex];
+        const LINE_EFFICIENCY_CAP = 5;
         if (line.efficiency >= LINE_EFFICIENCY_CAP) return state;
 
         const cost = Math.floor(LINE_EFFICIENCY_UPGRADE_BASE_COST * Math.pow(line.efficiencyLevel, 1.8));
@@ -718,7 +719,7 @@ const gameReducer = (state: GameState, action: GameAction): GameState => {
       const materialDetails = AVAILABLE_RAW_MATERIALS[materialName];
       if (!materialDetails) return state;
 
-      const totalCost = Math.floor(materialDetails.costPerUnit * quantity * costMultiplier);
+      const totalCost = materialDetails.costPerUnit * quantity * costMultiplier;
       const totalDeliveryTime = materialDetails.timePerUnit * quantity * state.deliveryTimeModifier;
 
       const newInvoice: Invoice = {
@@ -814,11 +815,11 @@ const gameReducer = (state: GameState, action: GameAction): GameState => {
         case 'UNLOCK_UPGRADE': {
           const newUpgrades = { ...newState.upgrades };
           if (project.unlock.upgradeId === 'unlock_van') {
-            newUpgrades['unlock_van'] = { id: 'unlock_van', name: "Buy Cargo Van", description: "Capacity: 25 pallets.", level: 1, cost: 400000 };
+            newUpgrades['unlock_van'] = { id: 'unlock_van', name: "Buy Cargo Van", description: "Capacity: 25 pallets.", level: 1, cost: 40000 };
           } else if (project.unlock.upgradeId === 'unlock_boxtruck') {
-            newUpgrades['unlock_boxtruck'] = { id: 'unlock_boxtruck', name: "Buy Box Truck", description: "Capacity: 50 pallets.", level: 1, cost: 1000000 };
+            newUpgrades['unlock_boxtruck'] = { id: 'unlock_boxtruck', name: "Buy Box Truck", description: "Capacity: 50 pallets.", level: 1, cost: 100000 };
           } else if (project.unlock.upgradeId === 'unlock_semitruck') {
-            newUpgrades['unlock_semitruck'] = { id: 'unlock_semitruck', name: "Buy Semi-Truck", description: "Capacity: 200 pallets.", level: 1, cost: 3500000 };
+            newUpgrades['unlock_semitruck'] = { id: 'unlock_semitruck', name: "Buy Semi-Truck", description: "Capacity: 200 pallets.", level: 1, cost: 350000 };
           }
           newState.upgrades = newUpgrades;
           break;

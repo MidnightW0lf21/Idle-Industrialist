@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -49,7 +50,7 @@ export default function Header() {
           <Card className="shadow-sm">
             <CardContent className="p-2 flex items-center gap-2">
               <DollarSign className="h-5 w-5 text-green-500" />
-              <span className="font-semibold text-lg">{mounted ? `$${state.money.toLocaleString()}` : '$...'}</span>
+              <span className="font-semibold text-lg">{mounted ? `$${Math.floor(state.money).toLocaleString()}` : '$...'}</span>
             </CardContent>
           </Card>
           <Card className="shadow-sm">

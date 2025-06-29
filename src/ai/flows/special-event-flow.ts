@@ -1,3 +1,4 @@
+
 'use server';
 /**
  * @fileOverview Generates random special events for the factory game.
@@ -53,7 +54,7 @@ const prompt = ai.definePrompt({
     - RAW_MATERIAL_PRICE_CHANGE: The cost of one specific raw material changes. 'priceMultiplier' can be high (e.g., 1.5-3.0) for a shortage or low (e.g., 0.5-0.7) for a surplus.
     - PRODUCT_DEMAND_SURGE: The sale value of a finished product the player can make suddenly increases. Choose a plausible product name based on electronics components (e.g., "100uF Capacitors"). The 'priceMultiplier' should be high (1.5-2.5). This is a positive event.
     - GLOBAL_EFFICIENCY_BOOST: A technological breakthrough or new management technique provides a temporary boost to all production. 'efficiencyBoost' should be between 1.2 and 1.8. This is a positive event.
-    - WORKER_STRIKE: The workers demand better pay. All production halts until the 'strikeDemand' is paid. This is a negative event. Make the demand significant but not game-ending, based on the player's money.
+    - WORKER_STRIKE: The workers demand better pay. All production halts until the 'strikeDemand' is paid. This is a negative event. Make the demand significant but not game-ending, based on the player's money. For reference a new production line costs $10,000.
     - SUPPLY_CHAIN_DELAY: Global shipping problems cause all incoming raw material deliveries to be delayed. 'delayTime' should be between 60 and 180 seconds. This is a negative event.
     
     Choose an event type and fill in the required fields. Ensure the 'description' clearly explains the effect to the player.

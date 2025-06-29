@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useGameState } from '@/contexts/GameStateContext';
 import { generateNewsHeadline } from '@/ai/flows/news-generation-flow';
 import { Newspaper } from 'lucide-react';
@@ -8,14 +8,22 @@ import { Newspaper } from 'lucide-react';
 export default function NewsTicker() {
   const { state } = useGameState();
   const [headlines, setHeadlines] = useState<string[]>(["Welcome to Idle Industrialist! Your journey to a manufacturing empire begins now..."]);
-  const [isFetching, setIsFetching] = useState(false);
+  const isFetchingRef = useRef(false);
+  const stateRef = useRef(state);
+
+  // Keep a ref to the latest state to avoid stale closures in the interval
+  useEffect(() => {
+    stateRef.current = state;
+  }, [state]);
+
 
   useEffect(() => {
     const fetchHeadline = async () => {
-      if (isFetching) return;
-      setIsFetching(true);
+      if (isFetchingRef.current) return;
+      isFetchingRef.current = true;
       try {
-        const { money, reputation, activeEvent } = state;
+        // Use the ref to get the most up-to-date state for the AI call
+        const { money, reputation, activeEvent } = stateRef.current;
         const input = {
           playerMoney: money,
           reputation: reputation,
@@ -32,14 +40,16 @@ export default function NewsTicker() {
       } catch (error) {
         console.error("Failed to fetch news headline:", error);
       } finally {
-        setIsFetching(false);
+        isFetchingRef.current = false;
       }
     };
 
-    const intervalId = setInterval(fetchHeadline, 45000); // Fetch a new headline every 45 seconds
+    // Fetch a new headline every 45 seconds
+    const intervalId = setInterval(fetchHeadline, 45000); 
     
+    // Clean up the interval when the component unmounts
     return () => clearInterval(intervalId);
-  }, [state, isFetching]);
+  }, []); // Empty dependency array ensures this effect runs only once
 
   return (
     <div className="bg-secondary/50 text-secondary-foreground border-t border-border overflow-hidden whitespace-nowrap relative flex items-center h-8">

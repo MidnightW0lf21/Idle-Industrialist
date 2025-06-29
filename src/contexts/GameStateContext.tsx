@@ -44,6 +44,7 @@ const initialUpgrades: Record<string, Upgrade> = {
   'warehouse_expansion': { id: 'warehouse_expansion', name: "Warehouse Expansion", description: `Increase warehouse capacity by ${WAREHOUSE_CAPACITY_UPGRADE_BASE_AMOUNT} pallets.`, level: 1, cost: WAREHOUSE_EXPANSION_BASE_COST },
   'power_expansion': { id: 'power_expansion', name: "Power Grid Expansion", description: `Increase power capacity by ${POWER_CAPACITY_UPGRADE_BASE_AMOUNT} MW.`, level: 1, cost: POWER_GRID_BASE_COST },
   'cert_level_2': { id: 'cert_level_2', name: "Logistics Certification I", description: "Unlocks access to more complex and profitable orders.", level: 2, cost: CERTIFICATION_BASE_COST },
+  'delivery_speed_1': { id: 'delivery_speed_1', name: "Local Supplier Contract", description: "Reduce material delivery times by 15%.", level: 1, cost: 5000 },
   'unlock_pickup': { id: 'unlock_pickup', name: "Buy Pickup Truck", description: "Capacity: 10 pallets, faster delivery.", level: 1, cost: 1500 },
 };
 
@@ -122,6 +123,7 @@ const initialState: GameState = {
   activeEvent: null,
   research: initialResearch,
   globalEfficiencyModifier: 1.0,
+  deliveryTimeModifier: 1.0,
   unlockedTechnologies: [],
 };
 
@@ -542,6 +544,23 @@ const gameReducer = (state: GameState, action: GameAction): GameState => {
           delete newUpgrades['unlock_semitruck'];
           newState.upgrades = newUpgrades;
           break;
+        case 'delivery_speed_1':
+            newState.deliveryTimeModifier = 0.85; // 15% reduction
+            delete newUpgrades['delivery_speed_1'];
+            newUpgrades['delivery_speed_2'] = { id: 'delivery_speed_2', name: "Regional Distribution Center", description: "Reduce material delivery times by a further 20%.", level: 2, cost: 20000 };
+            newState.upgrades = newUpgrades;
+            break;
+        case 'delivery_speed_2':
+            newState.deliveryTimeModifier = 0.65; // ~35% total reduction
+            delete newUpgrades['delivery_speed_2'];
+            newUpgrades['delivery_speed_3'] = { id: 'delivery_speed_3', name: "Drone Delivery Network", description: "Reduce material delivery times by a further 25%.", level: 3, cost: 100000 };
+            newState.upgrades = newUpgrades;
+            break;
+        case 'delivery_speed_3':
+            newState.deliveryTimeModifier = 0.40; // 60% total reduction
+            delete newUpgrades['delivery_speed_3'];
+            newState.upgrades = newUpgrades;
+            break;
       }
 
       return newState;
@@ -702,7 +721,7 @@ const gameReducer = (state: GameState, action: GameAction): GameState => {
       if (!materialDetails) return state;
 
       const totalCost = materialDetails.costPerUnit * quantity * costMultiplier;
-      const totalDeliveryTime = materialDetails.timePerUnit * quantity;
+      const totalDeliveryTime = materialDetails.timePerUnit * quantity * state.deliveryTimeModifier;
 
       const newInvoice: Invoice = {
         id: (Math.max(...state.invoices.map(i => i.id), 0) || 0) + 1,

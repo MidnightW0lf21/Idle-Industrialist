@@ -149,6 +149,7 @@ export interface GameState {
   activeEvent: SpecialEvent | null;
   research: ResearchState;
   globalEfficiencyModifier: number;
+  deliveryTimeModifier: number;
   unlockedTechnologies: string[];
 }
 

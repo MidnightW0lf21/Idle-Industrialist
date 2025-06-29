@@ -42,7 +42,7 @@ export default function InvoicesTab() {
       }
       setTotalCost(materialDetails.costPerUnit * numericQuantity * costMultiplier);
 
-      let time = materialDetails.timePerUnit * numericQuantity;
+      let time = materialDetails.timePerUnit * numericQuantity * state.deliveryTimeModifier;
       if (deliveryDelayEvent) {
           time += deliveryDelayEvent.delayTime || 0;
       }
@@ -51,7 +51,7 @@ export default function InvoicesTab() {
       setTotalCost(0);
       setTotalTime(0);
     }
-  }, [selectedMaterial, quantity, priceChangeEvent, deliveryDelayEvent]);
+  }, [selectedMaterial, quantity, priceChangeEvent, deliveryDelayEvent, state.deliveryTimeModifier]);
 
 
   const handleOrderMaterials = () => {

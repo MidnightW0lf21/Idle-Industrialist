@@ -107,11 +107,11 @@ export default function OrdersTab() {
       <div>
         <div className="flex justify-between items-baseline mb-2">
           <h3 className="text-lg font-semibold font-headline">Production Queue</h3>
-          <span className="text-sm text-muted-foreground">{state.productionQueue.length} / {QUEUE_CAP}</span>
+          <span className="text-sm text-muted-foreground">{isClient ? state.productionQueue.length : 0} / {QUEUE_CAP}</span>
         </div>
         <TooltipProvider delayDuration={100}>
           <div className="space-y-2">
-            {state.productionQueue.length > 0 ? state.productionQueue.map((order) => (
+            {isClient && state.productionQueue.length > 0 ? state.productionQueue.map((order) => (
               <Tooltip key={order.id}>
                 <TooltipTrigger asChild>
                   <div className="flex items-center justify-between p-2 rounded-md bg-secondary/30 w-full cursor-default">

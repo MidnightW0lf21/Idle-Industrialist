@@ -22,6 +22,11 @@ export default function InvoicesTab() {
   const [quantity, setQuantity] = useState(100);
   const [totalCost, setTotalCost] = useState(0);
   const [totalTime, setTotalTime] = useState(0);
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   const priceChangeEvent = state.activeEvent?.type === 'RAW_MATERIAL_PRICE_CHANGE' ? state.activeEvent : null;
   const deliveryDelayEvent = state.activeEvent?.type === 'SUPPLY_CHAIN_DELAY' ? state.activeEvent : null;
@@ -173,7 +178,7 @@ export default function InvoicesTab() {
           <h3 className="text-lg font-semibold mb-2 font-headline">Pending Invoices</h3>
           <ScrollArea className="h-40 pr-4">
             <div className="space-y-3">
-              {unpaidInvoices.length > 0 ? unpaidInvoices.map(invoice => (
+              {isClient && unpaidInvoices.length > 0 ? unpaidInvoices.map(invoice => (
                 <Card key={invoice.id} className="bg-secondary/30">
                   <CardHeader className="pb-2">
                     <CardTitle className="text-base flex items-center gap-2"><FileText className="w-4 h-4" /> Invoice #{invoice.id}</CardTitle>
@@ -204,7 +209,7 @@ export default function InvoicesTab() {
           <h3 className="text-lg font-semibold mb-2 font-headline">In-Transit Shipments</h3>
            <ScrollArea className="h-40 pr-4">
             <div className="space-y-3">
-              {paidInvoices.length > 0 ? paidInvoices.map(invoice => {
+              {isClient && paidInvoices.length > 0 ? paidInvoices.map(invoice => {
                 const timeRemaining = (invoice.deliveryArrivalTime! - Date.now()) / 1000;
                 const progress = (1 - (timeRemaining / invoice.totalDeliveryTime)) * 100;
                 return (

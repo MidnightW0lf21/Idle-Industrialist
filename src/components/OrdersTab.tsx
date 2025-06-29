@@ -10,12 +10,18 @@ import { Package, DollarSign, Clock, ChevronsRight, Loader2, Wrench, Star } from
 import { useToast } from "@/hooks/use-toast";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
+import { useState, useEffect } from 'react';
 
 const QUEUE_CAP = 10;
 
 export default function OrdersTab() {
   const { state, dispatch } = useGameState();
   const { toast } = useToast();
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   const handleAcceptOrder = (order) => {
     if (state.productionQueue.length >= QUEUE_CAP) {
@@ -41,7 +47,7 @@ export default function OrdersTab() {
         <h3 className="text-lg font-semibold mb-2 font-headline">Available Orders</h3>
         <ScrollArea className="h-64 pr-4">
           <div className="space-y-4">
-            {state.availableOrders.length > 0 ? state.availableOrders.map(order => (
+            {isClient && state.availableOrders.length > 0 ? state.availableOrders.map(order => (
               <Card key={order.id} className={cn("bg-secondary/30", order.isContract && "border-accent/50 ring-2 ring-accent/20")}>
                 <CardHeader className="pb-2">
                   <CardTitle className="text-base flex justify-between items-center">

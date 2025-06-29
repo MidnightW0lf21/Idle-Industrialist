@@ -149,7 +149,7 @@ export default function WarehouseDisplay() {
               </div>
           )}
           
-          {totalStoredPallets > 0 ? (
+          {isClient && totalStoredPallets > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Pallet Selection */}
               <div className="space-y-2">
@@ -211,7 +211,7 @@ export default function WarehouseDisplay() {
         <div className="space-y-2">
           <h3 className="font-semibold font-headline">Active Shipments</h3>
            <ScrollArea className="h-24 pr-4">
-          {state.activeShipments.length > 0 ? (
+          {isClient && state.activeShipments.length > 0 ? (
             <div className="space-y-2">
               {state.activeShipments.map(shipment => {
                 const timeRemaining = (shipment.arrivalTime - Date.now()) / 1000;
